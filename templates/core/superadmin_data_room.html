@@ -15,7 +15,14 @@
   <div class="col-lg-6 mb-3">
     <div class="card shadow-sm h-100">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <strong>Documente generate (ultimele 50)</strong>
+        <div>
+          <strong>Documente generate</strong>
+          <form class="d-inline ms-2" method="get">
+            <input type="text" name="doc_q" value="{{ doc_q }}" placeholder="Cauta (cetatean/template)" class="form-control form-control-sm d-inline" style="width: 220px;">
+            <input type="number" name="doc_page_size" value="{{ doc_page_size }}" min="10" max="500" class="form-control form-control-sm d-inline" style="width: 90px;" title="nr per pagina">
+            <button class="btn btn-sm btn-outline-secondary">Filtreaza</button>
+          </form>
+        </div>
         <span class="text-muted small">Total: {{ total_docs }}</span>
       </div>
       <div class="table-responsive">
@@ -58,38 +65,74 @@
           </tbody>
         </table>
       </div>
+      <div class="card-footer d-flex justify-content-between align-items-center">
+        <div class="text-muted small">Pagina {{ docs.number }} din {{ docs.paginator.num_pages }}</div>
+        <div class="btn-group btn-group-sm" role="group">
+          {% if docs.has_previous %}
+            <a class="btn btn-outline-secondary" href="?doc_page={{ docs.previous_page_number }}&doc_page_size={{ doc_page_size }}&doc_q={{ doc_q }}">←</a>
+          {% endif %}
+          {% if docs.has_next %}
+            <a class="btn btn-outline-secondary" href="?doc_page={{ docs.next_page_number }}&doc_page_size={{ doc_page_size }}&doc_q={{ doc_q }}">→</a>
+          {% endif %}
+        </div>
+      </div>
     </div>
   </div>
 
   <div class="col-lg-6 mb-3">
     <div class="card shadow-sm h-100">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <strong>Utilizatori (ultimele 50)</strong>
+        <div>
+          <strong>Utilizatori</strong>
+          <form class="d-inline ms-2" method="get">
+            <input type="text" name="user_q" value="{{ user_q }}" placeholder="Cauta (username/email)" class="form-control form-control-sm d-inline" style="width: 220px;">
+            <input type="number" name="user_page_size" value="{{ user_page_size }}" min="10" max="500" class="form-control form-control-sm d-inline" style="width: 90px;" title="nr per pagina">
+            <button class="btn btn-sm btn-outline-secondary">Filtreaza</button>
+          </form>
+        </div>
         <span class="text-muted small">Total: {{ total_users }}</span>
       </div>
       <div class="table-responsive">
         <table class="table table-sm mb-0">
           <thead>
             <tr>
-              <th>Username</th>
-              <th>Email</th>
+              <th>Username / Email</th>
               <th>Rol</th>
-              <th class="text-end">Actiune</th>
+              <th class="text-end">Actiuni</th>
             </tr>
           </thead>
           <tbody>
             {% for u in users %}
+            {% with form_id="user-form-"|add:u.id %}
             <tr>
-              <td>{{ u.username }}</td>
-              <td>{{ u.email }}</td>
               <td>
-                {% if u.is_superuser %}<span class="badge bg-dark">Superadmin</span>
-                {% elif u.is_staff %}<span class="badge bg-info text-dark">Staff</span>
-                {% else %}<span class="badge bg-secondary">Cetatean</span>
+                <input type="text" name="username" value="{{ u.username }}" class="form-control form-control-sm"
+                       form="{{ form_id }}"
+                       {% if u.is_superuser and not request.user.is_superuser %}disabled{% endif %}>
+                <input type="email" name="email" value="{{ u.email }}" class="form-control form-control-sm mt-1"
+                       form="{{ form_id }}"
+                       {% if u.is_superuser and not request.user.is_superuser %}disabled{% endif %}>
+              </td>
+              <td class="align-middle">
+                {% if u.is_superuser %}
+                  <span class="badge bg-dark">Superadmin</span>
+                {% else %}
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="is_staff" value="1" id="staff{{ u.id }}" {% if u.is_staff %}checked{% endif %} form="{{ form_id }}">
+                    <label class="form-check-label" for="staff{{ u.id }}">Staff</label>
+                  </div>
                 {% endif %}
               </td>
-              <td class="text-end">
-                <form method="post" onsubmit="return confirm('Stergi acest utilizator?');">
+              <td class="text-end align-middle">
+                <form method="post" id="{{ form_id }}" class="d-inline">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="update_user">
+                  <input type="hidden" name="user_id" value="{{ u.id }}">
+                  <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" {% if u.is_superuser and user != request.user %}disabled{% endif %}>Salveaza</button>
+                  </div>
+                </form>
+                <form method="post" class="d-inline ms-1" onsubmit="return confirm('Stergi acest utilizator?');">
                   {% csrf_token %}
                   <input type="hidden" name="action" value="delete_user">
                   <input type="hidden" name="user_id" value="{{ u.id }}">
@@ -97,11 +140,23 @@
                 </form>
               </td>
             </tr>
+            {% endwith %}
             {% empty %}
-            <tr><td colspan="4" class="text-muted">Nu exista utilizatori.</td></tr>
+            <tr><td colspan="3" class="text-muted">Nu exista utilizatori.</td></tr>
             {% endfor %}
           </tbody>
         </table>
+      </div>
+      <div class="card-footer d-flex justify-content-between align-items-center">
+        <div class="text-muted small">Pagina {{ users.number }} din {{ users.paginator.num_pages }}</div>
+        <div class="btn-group btn-group-sm" role="group">
+          {% if users.has_previous %}
+            <a class="btn btn-outline-secondary" href="?user_page={{ users.previous_page_number }}&user_page_size={{ user_page_size }}&user_q={{ user_q }}">←</a>
+          {% endif %}
+          {% if users.has_next %}
+            <a class="btn btn-outline-secondary" href="?user_page={{ users.next_page_number }}&user_page_size={{ user_page_size }}&user_q={{ user_q }}">→</a>
+          {% endif %}
+        </div>
       </div>
     </div>
   </div>

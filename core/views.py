@@ -542,12 +542,50 @@ def superadmin_data_room(request):
             user.delete()
             messages.success(request, "Utilizator sters.")
             return redirect("superadmin_data_room")
+        if action == "update_user":
+            user_id = request.POST.get("user_id")
+            user = get_object_or_404(User, pk=user_id)
+            new_username = request.POST.get("username", "").strip()
+            new_email = request.POST.get("email", "").strip()
+            set_staff = request.POST.get("is_staff") == "1"
 
-    docs = (
-        GeneratedDocument.objects.select_related("citizen", "template")
-        .order_by("-created_at")[:50]
-    )
-    users = User.objects.order_by("-date_joined")[:50]
+            if user.is_superuser and user != request.user:
+                messages.error(request, "Nu poti modifica un alt superadmin.")
+                return redirect("superadmin_data_room")
+
+            if new_username and new_username != user.username:
+                user.username = new_username
+            user.email = new_email
+            user.is_staff = set_staff or user.is_superuser  # superadmin ramane staff
+            user.save(update_fields=["username", "email", "is_staff"])
+            messages.success(request, "Utilizator actualizat.")
+            return redirect("superadmin_data_room")
+
+    # filtre + paginare
+    from django.core.paginator import Paginator
+
+    doc_q = request.GET.get("doc_q", "").strip()
+    doc_page = int(request.GET.get("doc_page", 1) or 1)
+    doc_page_size = min(max(int(request.GET.get("doc_page_size", 100) or 100), 10), 500)
+
+    docs_qs = GeneratedDocument.objects.select_related("citizen", "template").order_by("-created_at")
+    if doc_q:
+        docs_qs = docs_qs.filter(
+            models.Q(citizen__full_name__icontains=doc_q)
+            | models.Q(template__name__icontains=doc_q)
+        )
+    docs_paginator = Paginator(docs_qs, doc_page_size)
+    docs = docs_paginator.get_page(doc_page)
+
+    user_q = request.GET.get("user_q", "").strip()
+    user_page = int(request.GET.get("user_page", 1) or 1)
+    user_page_size = min(max(int(request.GET.get("user_page_size", 100) or 100), 10), 500)
+    users_qs = User.objects.order_by("-date_joined")
+    if user_q:
+        users_qs = users_qs.filter(models.Q(username__icontains=user_q) | models.Q(email__icontains=user_q))
+    users_paginator = Paginator(users_qs, user_page_size)
+    users = users_paginator.get_page(user_page)
+
     total_docs = GeneratedDocument.objects.count()
     total_users = User.objects.count()
     total_citizens = Citizen.objects.count()
@@ -565,6 +603,10 @@ def superadmin_data_room(request):
             "total_citizens": total_citizens,
             "media_root": media_root,
             "db_path": db_path,
+            "doc_q": doc_q,
+            "doc_page_size": doc_page_size,
+            "user_q": user_q,
+            "user_page_size": user_page_size,
         },
     )
 
