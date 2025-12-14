@@ -4,6 +4,7 @@ def unread_counts(request):
     data = {
         "unread_citizen": 0,
         "unread_staff": 0,
+        "unread_staff_leave": 0,
         "unread_chat_staff": 0,
     }
     user = getattr(request, "user", None)
@@ -13,7 +14,9 @@ def unread_counts(request):
         ctz = user.citizen_profile
         data["unread_citizen"] = Notification.objects.filter(citizen=ctz, is_read=False).count()
     if user.is_staff:
-        data["unread_staff"] = StaffNotification.objects.filter(user=user, is_read=False).count()
+        qs_staff = StaffNotification.objects.filter(user=user, is_read=False)
+        data["unread_staff"] = qs_staff.count()
+        data["unread_staff_leave"] = qs_staff.filter(work_item__isnull=True).count()
         muni = None
         if hasattr(user, "municipality_admin"):
             muni = user.municipality_admin.municipality

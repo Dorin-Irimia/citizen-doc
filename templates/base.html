@@ -97,8 +97,8 @@
               <a class="nav-link" href="{% url 'work_item_list' %}">Lucrari</a>
               <a class="nav-link position-relative" href="{% url 'leave_dashboard' %}">
                 Concedii
-                {% if unread_counts.unread_staff %}
-                  <span class="badge bg-danger position-absolute translate-middle-y" style="top: 0; right: -12px;">{{ unread_counts.unread_staff }}</span>
+                {% if unread_counts.unread_staff_leave %}
+                  <span class="badge bg-danger position-absolute translate-middle-y" style="top: 0; right: -12px;">{{ unread_counts.unread_staff_leave }}</span>
                 {% endif %}
               </a>
               {% if request.user.is_superuser %}

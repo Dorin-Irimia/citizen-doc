@@ -580,9 +580,16 @@ def superadmin_data_room(request):
     user_q = request.GET.get("user_q", "").strip()
     user_page = int(request.GET.get("user_page", 1) or 1)
     user_page_size = min(max(int(request.GET.get("user_page_size", 100) or 100), 10), 500)
+    user_muni = request.GET.get("user_muni") or ""
     users_qs = User.objects.order_by("-date_joined")
     if user_q:
         users_qs = users_qs.filter(models.Q(username__icontains=user_q) | models.Q(email__icontains=user_q))
+    if user_muni:
+        users_qs = users_qs.filter(
+            models.Q(municipality_admin__municipality_id=user_muni)
+            | models.Q(citizen_profile__municipality_id=user_muni)
+        )
+    users_qs = users_qs.select_related("citizen_profile__municipality", "municipality_admin__municipality")
     users_paginator = Paginator(users_qs, user_page_size)
     users = users_paginator.get_page(user_page)
 
@@ -591,6 +598,7 @@ def superadmin_data_room(request):
     total_citizens = Citizen.objects.count()
     media_root = settings.MEDIA_ROOT
     db_path = settings.DATABASES["default"]["NAME"]
+    municipalities = Municipality.objects.order_by("name")
 
     return render(
         request,
@@ -607,6 +615,8 @@ def superadmin_data_room(request):
             "doc_page_size": doc_page_size,
             "user_q": user_q,
             "user_page_size": user_page_size,
+            "user_muni": user_muni,
+            "municipalities": municipalities,
         },
     )
 
@@ -1472,20 +1482,30 @@ def generate_select(request):
         if selected_muni_id:
             selected_muni = Municipality.objects.filter(pk=selected_muni_id).first()
 
+    # superadmin vede tot; staff este limitat la propria primarie
     citizens = Citizen.objects.all()
-    if selected_muni:
-        citizens = citizens.filter(municipality=selected_muni)
     templates = DocumentTemplate.objects.all()
-    if selected_muni:
+    if not request.user.is_superuser and selected_muni:
+        citizens = citizens.filter(municipality=selected_muni)
         templates = templates.filter(models.Q(municipalities=selected_muni) | models.Q(municipalities__isnull=True)).distinct()
+
     if request.method == "POST":
         citizen_id = request.POST.get("citizen_id")
         template_slug = request.POST.get("template_slug")
         target = get_object_or_404(Citizen, id=citizen_id)
-        tmpl = get_object_or_404(templates, slug=template_slug)
-        if request.user.is_superuser and not selected_muni:
-            messages.error(request, "Selecteaza mai intai institutia.")
+        tmpl = DocumentTemplate.objects.filter(slug=template_slug).first()
+        if not tmpl:
+            messages.error(request, "Template inexistent.")
             return redirect("generate_select")
+
+        # verificam accesul pe institutia curenta doar pentru staff (non-superadmin)
+        if not request.user.is_superuser:
+            user_muni = selected_muni or base_muni or target.municipality
+            if tmpl.municipalities.exists():
+                if not user_muni or not tmpl.municipalities.filter(pk=user_muni.pk).exists():
+                    messages.error(request, "Template-ul nu este disponibil pentru institutia ta.")
+                    return redirect("generate_select")
+
         if target.profile_status == "pending_validation":
             messages.error(request, "Profilul acestui cetatean asteapta validare. Nu se pot genera documente.")
             return redirect("generate_select")
