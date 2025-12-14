@@ -86,7 +86,12 @@
         <div class="collapse navbar-collapse" id="mainNav">
           <div class="navbar-nav me-auto">
             {% if request.user.is_staff %}
-              <a class="nav-link" href="{% url 'citizen_list' %}">Cetateni</a>
+              <a class="nav-link position-relative" href="{% url 'citizen_list' %}">
+                Cetateni
+                {% if unread_counts.unread_chat_staff %}
+                  <span class="badge bg-danger position-absolute translate-middle-y" style="top: 0; right: -14px;">{{ unread_counts.unread_chat_staff }}</span>
+                {% endif %}
+              </a>
               <a class="nav-link" href="{% url 'template_list' %}">Template-uri</a>
               <a class="nav-link" href="{% url 'generate_select' %}">Genereaza</a>
               <a class="nav-link" href="{% url 'work_item_list' %}">Lucrari</a>

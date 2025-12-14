@@ -770,7 +770,7 @@ def chat_thread(request, citizen_id=None):
     msgs = (
         Message.objects.filter(citizen=citizen, chat_thread=active_thread)
         .select_related("sender")
-        .order_by("created_at")
+        .order_by("-created_at")
     )
     pending_delete = msgs.filter(text=DELETE_TOKEN).exists()
 
@@ -798,11 +798,16 @@ def chat_thread(request, citizen_id=None):
                     sender=request.user,
                     text=DELETE_TOKEN,
                 )
-                _notify_citizen(
-                    citizen,
-                    "Solicitare stergere chat",
-                    "Administratorul a cerut stergerea conversatiei. Confirma din fereastra de chat.",
-                )
+                # notificam pe email, nu prin badge-ul general
+                target_email = citizen.email_recuperare or (citizen.user.email if citizen.user else None)
+                if target_email:
+                    send_mail(
+                        "Solicitare stergere chat",
+                        "Administratorul a cerut stergerea conversatiei. Confirma din fereastra de chat.",
+                        settings.DEFAULT_FROM_EMAIL,
+                        [target_email],
+                        fail_silently=True,
+                    )
                 messages.success(request, "Solicitarea a fost trimisa cetateanului.")
             else:
                 messages.info(request, "Exista deja o solicitare in asteptare pentru acest chat.")
@@ -842,9 +847,17 @@ def chat_thread(request, citizen_id=None):
                 text=text,
                 attachment=attachment,
             )
-            # Notificam doar cand un admin trimite mesaj; cetateanul nu trebuie sa-si genereze notificari proprii
+            # Email doar pentru cetatean, fara a umple badge-ul de notificari generale
             if request.user.is_staff:
-                _notify_citizen(citizen, "Mesaj nou", "Ai primit un mesaj in chat.")
+                target_email = citizen.email_recuperare or (citizen.user.email if citizen.user else None)
+                if target_email:
+                    send_mail(
+                        "Mesaj nou in chat",
+                        "Ai primit un mesaj in chat.",
+                        settings.DEFAULT_FROM_EMAIL,
+                        [target_email],
+                        fail_silently=True,
+                    )
             return redirect(request.path + f"?thread={active_thread.id}")
 
     return render(

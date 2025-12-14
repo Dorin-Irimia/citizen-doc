@@ -1,6 +1,45 @@
 {% extends "base.html" %}
 {% block title %}Chat{% endblock %}
 {% block content %}
+<style>
+  .chat-feed {
+    max-height: 60vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    background: #f6f8fb;
+    border-radius: 12px;
+  }
+  .chat-bubble {
+    max-width: 78%;
+    padding: 10px 12px;
+    border-radius: 12px;
+    position: relative;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  }
+  .chat-row {
+    display: flex;
+    width: 100%;
+  }
+  .chat-row.from-staff { justify-content: flex-end; }
+  .chat-row.from-citizen { justify-content: flex-start; }
+  .chat-bubble.staff {
+    background: #d1f2d6;
+    border: 1px solid #b3e6bc;
+  }
+  .chat-bubble.citizen {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+  }
+  .chat-meta {
+    font-size: 12px;
+    color: #6c757d;
+    margin-top: 4px;
+    text-align: right;
+  }
+</style>
 <div class="row">
   <div class="col-md-4 col-lg-3">
     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -42,20 +81,25 @@
     </form>
 
     <div class="card shadow-sm mb-3">
-      <div class="card-body" style="max-height: 50vh; overflow-y: auto;">
+      <div class="card-body">
         {% if chat_messages %}
-          <div class="list-group">
+          <div class="chat-feed">
             {% for m in chat_messages %}
-              <div class="list-group-item">
-                <div class="d-flex justify-content-between small text-muted">
-                  <span>{{ m.created_at }} - {{ m.sender.username }}</span>
-                </div>
-                {% if m.text %}<div class="mt-1">{{ m.text|linebreaksbr }}</div>{% endif %}
-                {% if m.attachment %}
-                  <div class="mt-2">
-                    <a href="{{ m.attachment.url }}" target="_blank">Deschide fisier</a>
+              <div class="chat-row {% if m.sender.is_staff %}from-staff{% else %}from-citizen{% endif %}">
+                <div class="chat-bubble {% if m.sender.is_staff %}staff{% else %}citizen{% endif %}">
+                  {% if m.text %}
+                    <div>{{ m.text|linebreaksbr }}</div>
+                  {% endif %}
+                  {% if m.attachment %}
+                    <div class="mt-2">
+                      <a href="{{ m.attachment.url }}" target="_blank">Deschide fisier</a>
+                    </div>
+                  {% endif %}
+                  <div class="chat-meta">
+                    <span>{{ m.created_at|date:"d M, H:i" }}</span>
+                    {% if m.sender.is_staff %}<span class="ms-2">Admin</span>{% else %}<span class="ms-2">Cetatean</span>{% endif %}
                   </div>
-                {% endif %}
+                </div>
               </div>
             {% endfor %}
           </div>
