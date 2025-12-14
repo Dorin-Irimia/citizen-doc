@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Data room{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h4 mb-1">Data room / baza de date</h1>
+    <div class="text-muted small">DB: {{ db_path }} | Media: {{ media_root }}</div>
+  </div>
+  <div class="text-muted small">
+    Cetateni: {{ total_citizens }} | Utilizatori: {{ total_users }} | Documente: {{ total_docs }}
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-6 mb-3">
+    <div class="card shadow-sm h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Documente generate (ultimele 50)</strong>
+        <span class="text-muted small">Total: {{ total_docs }}</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead>
+            <tr>
+              <th>Document</th>
+              <th>Cetatean</th>
+              <th>Fisier</th>
+              <th class="text-end">Actiune</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in docs %}
+            <tr>
+              <td>
+                {{ d.template.name }}<br>
+                <span class="text-muted small">{{ d.created_at|date:"d M Y, H:i" }}</span>
+              </td>
+              <td>{{ d.citizen.full_name }}</td>
+              <td>
+                {% if d.file %}
+                  <a href="{{ d.file.url }}" target="_blank">Descarca</a>
+                {% else %}
+                  <span class="text-muted small">Fara fisier</span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                <form method="post" onsubmit="return confirm('Stergi acest document?');">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="delete_doc">
+                  <input type="hidden" name="doc_id" value="{{ d.id }}">
+                  <button class="btn btn-sm btn-outline-danger">Sterge</button>
+                </form>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-muted">Nu exista documente.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6 mb-3">
+    <div class="card shadow-sm h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Utilizatori (ultimele 50)</strong>
+        <span class="text-muted small">Total: {{ total_users }}</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Email</th>
+              <th>Rol</th>
+              <th class="text-end">Actiune</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in users %}
+            <tr>
+              <td>{{ u.username }}</td>
+              <td>{{ u.email }}</td>
+              <td>
+                {% if u.is_superuser %}<span class="badge bg-dark">Superadmin</span>
+                {% elif u.is_staff %}<span class="badge bg-info text-dark">Staff</span>
+                {% else %}<span class="badge bg-secondary">Cetatean</span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                <form method="post" onsubmit="return confirm('Stergi acest utilizator?');">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="delete_user">
+                  <input type="hidden" name="user_id" value="{{ u.id }}">
+                  <button class="btn btn-sm btn-outline-danger" {% if u.is_superuser %}disabled{% endif %}>Sterge</button>
+                </form>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-muted">Nu exista utilizatori.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

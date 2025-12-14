@@ -11,6 +11,7 @@ urlpatterns = [
     path("superadmin/code/", views.superadmin_request_code, name="superadmin_request_code"),
     path("superadmin/verify/", views.superadmin_verify_code, name="superadmin_verify_code"),
     path("superadmin/overview/", views.superadmin_overview, name="superadmin_overview"),
+    path("superadmin/data-room/", views.superadmin_data_room, name="superadmin_data_room"),
     path("superadmin/municipality/new/", views.municipality_create, name="municipality_create"),
     path("superadmin/email-test/", views.superadmin_send_test_email, name="superadmin_send_test_email"),
     path("superadmin/admins/", views.superadmin_admins, name="superadmin_admins"),

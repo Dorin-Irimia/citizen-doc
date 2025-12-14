@@ -518,6 +518,57 @@ def superadmin_admins(request):
     )
 
 
+@user_passes_test(lambda u: u.is_superuser)
+def superadmin_data_room(request):
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "delete_doc":
+            doc_id = request.POST.get("doc_id")
+            doc = get_object_or_404(GeneratedDocument, pk=doc_id)
+            if doc.file:
+                doc.file.delete(save=False)
+            doc.delete()
+            messages.success(request, "Document sters.")
+            return redirect("superadmin_data_room")
+        if action == "delete_user":
+            user_id = request.POST.get("user_id")
+            user = get_object_or_404(User, pk=user_id)
+            if user == request.user:
+                messages.error(request, "Nu iti poti sterge propriul cont.")
+                return redirect("superadmin_data_room")
+            if user.is_superuser:
+                messages.error(request, "Nu poti sterge un alt superadmin.")
+                return redirect("superadmin_data_room")
+            user.delete()
+            messages.success(request, "Utilizator sters.")
+            return redirect("superadmin_data_room")
+
+    docs = (
+        GeneratedDocument.objects.select_related("citizen", "template")
+        .order_by("-created_at")[:50]
+    )
+    users = User.objects.order_by("-date_joined")[:50]
+    total_docs = GeneratedDocument.objects.count()
+    total_users = User.objects.count()
+    total_citizens = Citizen.objects.count()
+    media_root = settings.MEDIA_ROOT
+    db_path = settings.DATABASES["default"]["NAME"]
+
+    return render(
+        request,
+        "core/superadmin_data_room.html",
+        {
+            "docs": docs,
+            "users": users,
+            "total_docs": total_docs,
+            "total_users": total_users,
+            "total_citizens": total_citizens,
+            "media_root": media_root,
+            "db_path": db_path,
+        },
+    )
+
+
 @login_required
 def admin_account(request):
     muni = _user_municipality(request.user)
