@@ -12,6 +12,8 @@
     inset: 0;
     z-index: 0;
     background: linear-gradient(135deg, rgba(21, 34, 68, 0.85), rgba(9, 12, 30, 0.9));
+    pointer-events: none;
+    user-select: none;
   }
   .login-wrapper {
     position: relative;
@@ -30,6 +32,20 @@
   .auth-title {
     color: #e8eef9;
     text-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  }
+  /* Nav vizibil peste fundal inchis */
+  nav.navbar {
+    background: rgba(6, 14, 34, 0.85) !important;
+    backdrop-filter: blur(8px);
+    position: relative;
+    z-index: 2;
+  }
+  nav.navbar .navbar-brand,
+  nav.navbar .nav-link {
+    color: #e8eef9 !important;
+  }
+  nav.navbar .nav-link:hover {
+    color: #9cc6ff !important;
   }
 </style>
 
