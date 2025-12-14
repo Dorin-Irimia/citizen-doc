@@ -114,6 +114,22 @@ document.addEventListener("DOMContentLoaded", function() {
     });
   }
 
+  // Propaga pozitia mouse-ului chiar daca e peste nav/form (pentru interactiunea particulelor)
+  document.addEventListener("mousemove", function (evt) {
+    const pjs = window.pJSDom && window.pJSDom[0];
+    if (!pjs) return;
+    pjs.pJS.interactivity.mouse.pos_x = evt.clientX;
+    pjs.pJS.interactivity.mouse.pos_y = evt.clientY;
+    pjs.pJS.interactivity.status = "mousemove";
+  });
+  document.addEventListener("mouseleave", function () {
+    const pjs = window.pJSDom && window.pJSDom[0];
+    if (!pjs) return;
+    pjs.pJS.interactivity.mouse.pos_x = null;
+    pjs.pJS.interactivity.mouse.pos_y = null;
+    pjs.pJS.interactivity.status = "mouseleave";
+  });
+
   const btn = document.getElementById("toggle-pass");
   const input = document.getElementById("id_password");
   if (btn && input) {
