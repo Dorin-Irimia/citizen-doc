@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Login admin{% endblock %}
+{% block content %}
+<style>
+  body {
+    background: radial-gradient(circle at 30% 20%, #0f2e1c 0%, #0a1b11 45%, #050f09 100%);
+    color: #e5f4ea;
+  }
+  .login-wrapper {
+    min-height: 70vh;
+    display: flex;
+    align-items: center;
+  }
+  .glass-card {
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
+    color: #0d2415;
+  }
+  .admin-title {
+    color: #c9f7dc;
+    text-shadow: 0 5px 16px rgba(0, 0, 0, 0.35);
+  }
+  nav.navbar {
+    background: rgba(6, 20, 13, 0.9) !important;
+  }
+  nav.navbar .nav-link,
+  nav.navbar .navbar-brand {
+    color: #e5f4ea !important;
+  }
+  nav.navbar .nav-link:hover {
+    color: #9df1c1 !important;
+  }
+</style>
+<div class="container login-wrapper">
+  <div class="row justify-content-center w-100">
+    <div class="col-md-5">
+      <h1 class="h4 mb-3 text-center admin-title">Autentificare admin</h1>
+      <form method="post" class="card card-body glass-card">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        <div class="mb-3">
+          <label class="form-label">Utilizator</label>
+          {{ form.username }}
+          {{ form.username.errors }}
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Parola</label>
+          {{ form.password }}
+          {{ form.password.errors }}
+        </div>
+        {% if next_url %}
+          <input type="hidden" name="next" value="{{ next_url }}">
+        {% endif %}
+        <button class="btn btn-success w-100">Conecteaza-te</button>
+      </form>
+      <div class="text-center mt-3">
+        <a class="small text-light" href="{% url 'citizen_login' %}">Login cetatean</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

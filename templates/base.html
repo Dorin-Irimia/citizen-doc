@@ -125,7 +125,7 @@
               <a class="nav-link text-danger fw-bold" href="{% url 'citizen_logout' %}">Logout</a>
             {% else %}
               <a class="nav-link" href="{% url 'citizen_login' %}">Login cetatean</a>
-              <a class="nav-link" href="/admin/">Login admin</a>
+              <a class="nav-link" href="{% url 'staff_login' %}">Login admin</a>
               <a class="nav-link" href="{% url 'superadmin_request_code' %}">Login super admin</a>
             {% endif %}
           </div>

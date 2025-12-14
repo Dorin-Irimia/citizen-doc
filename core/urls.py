@@ -7,6 +7,7 @@ urlpatterns = [
     # autentificare cetatean
     path("login/", views.citizen_login, name="citizen_login"),
     path("logout/", views.citizen_logout, name="citizen_logout"),
+    path("staff/login/", views.staff_login, name="staff_login"),
     path("superadmin/code/", views.superadmin_request_code, name="superadmin_request_code"),
     path("superadmin/verify/", views.superadmin_verify_code, name="superadmin_verify_code"),
     path("superadmin/overview/", views.superadmin_overview, name="superadmin_overview"),

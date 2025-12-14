@@ -4,6 +4,7 @@ import csv
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
@@ -307,6 +308,31 @@ def citizen_login(request):
 def citizen_logout(request):
     logout(request)
     return redirect("citizen_login")
+
+
+def staff_login(request):
+    if request.user.is_authenticated and request.user.is_staff:
+        return redirect("admin_account")
+
+    next_url = request.GET.get("next") or request.POST.get("next") or ""
+    form = AuthenticationForm(request, data=request.POST or None)
+    if "username" in form.fields:
+        form.fields["username"].widget.attrs.update({"class": "form-control"})
+    if "password" in form.fields:
+        form.fields["password"].widget.attrs.update({"class": "form-control"})
+
+    if request.method == "POST":
+        if form.is_valid():
+            user = form.get_user()
+            if not user.is_staff:
+                messages.error(request, "Acest cont nu are acces de administrator.")
+            else:
+                login(request, user)
+                return redirect(next_url or "admin_account")
+        else:
+            messages.error(request, "Utilizator sau parola invalide.")
+
+    return render(request, "core/staff_login.html", {"form": form, "next_url": next_url})
 
 
 def superadmin_request_code(request):
@@ -816,7 +842,9 @@ def chat_thread(request, citizen_id=None):
                 text=text,
                 attachment=attachment,
             )
-            _notify_citizen(citizen, "Mesaj nou", "Ai primit un mesaj in chat.")
+            # Notificam doar cand un admin trimite mesaj; cetateanul nu trebuie sa-si genereze notificari proprii
+            if request.user.is_staff:
+                _notify_citizen(citizen, "Mesaj nou", "Ai primit un mesaj in chat.")
             return redirect(request.path + f"?thread={active_thread.id}")
 
     return render(
