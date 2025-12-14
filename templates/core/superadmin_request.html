@@ -1,10 +1,22 @@
 {% extends "base.html" %}
 {% block title %}Cod super admin{% endblock %}
 {% block content %}
+<style>
+  body { background: linear-gradient(135deg, #2a0f1a 0%, #1a0a11 45%, #0f050b 100%); }
+  nav.navbar { background: rgba(20, 6, 10, 0.9) !important; }
+  nav.navbar .nav-link, nav.navbar .navbar-brand { color: #f5d7df !important; }
+  nav.navbar .nav-link:hover { color: #ffb3c5 !important; }
+  .glass-card {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+  }
+  .super-title { color: #ffd9e3; text-shadow: 0 6px 20px rgba(0,0,0,0.45); }
+</style>
 <div class="row justify-content-center">
   <div class="col-md-6">
-    <h1 class="h4 mb-3 text-center">Autentificare super admin</h1>
-    <form method="post" class="card card-body shadow-sm">
+    <h1 class="h4 mb-3 text-center super-title">Autentificare super admin</h1>
+    <form method="post" class="card card-body shadow-sm glass-card">
       {% csrf_token %}
       {{ form.non_field_errors }}
       <div class="mb-3">
@@ -12,7 +24,7 @@
         {{ form.email }}
         {{ form.email.errors }}
       </div>
-      <button class="btn btn-primary w-100">Trimite cod</button>
+      <button class="btn btn-danger w-100">Trimite cod</button>
     </form>
   </div>
 </div>

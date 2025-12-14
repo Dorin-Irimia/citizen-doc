@@ -799,8 +799,9 @@ def chat_thread(request, citizen_id=None):
                         fail_silently=True,
                     )
                 msgs.delete()
+                active_thread.delete()  # stergem si threadul pentru a disparea din lista
                 messages.success(request, "Conversatia a fost stearsa.")
-                return redirect(request.path + f"?thread={active_thread.id}")
+                return redirect(request.path)
             else:
                 messages.error(request, "Nu exista o solicitare de stergere.")
                 return redirect(request.path + f"?thread={active_thread.id}")

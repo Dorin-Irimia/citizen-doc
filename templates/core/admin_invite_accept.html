@@ -1,10 +1,22 @@
 {% extends "base.html" %}
 {% block title %}Finalizeaza cont{% endblock %}
 {% block content %}
+<style>
+  body { background: radial-gradient(circle at 20% 20%, #0f2e1c 0%, #0a1b11 50%, #050f09 100%); }
+  nav.navbar { background: rgba(6, 20, 13, 0.9) !important; }
+  nav.navbar .nav-link, nav.navbar .navbar-brand { color: #e0f5e8 !important; }
+  nav.navbar .nav-link:hover { color: #9df1c1 !important; }
+  .glass-card {
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.32);
+  }
+  .admin-title { color: #c9f7dc; text-shadow: 0 5px 16px rgba(0,0,0,0.4); }
+</style>
 <div class="row justify-content-center">
   <div class="col-md-5">
-    <h1 class="h5 mb-3 text-center">Seteaza parola pentru {{ municipality }}</h1>
-    <form method="post" class="card card-body shadow-sm">
+    <h1 class="h5 mb-3 text-center admin-title">Seteaza parola pentru {{ municipality }}</h1>
+    <form method="post" class="card card-body shadow-sm glass-card">
       {% csrf_token %}
       {{ form.non_field_errors }}
       <div class="mb-3">
@@ -17,7 +29,7 @@
         {{ form.password2 }}
         {{ form.password2.errors }}
       </div>
-      <button class="btn btn-primary w-100">Creeaza cont</button>
+      <button class="btn btn-success w-100">Creeaza cont</button>
     </form>
   </div>
 </div>
