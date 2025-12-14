@@ -798,16 +798,6 @@ def chat_thread(request, citizen_id=None):
                     sender=request.user,
                     text=DELETE_TOKEN,
                 )
-                # notificam pe email, nu prin badge-ul general
-                target_email = citizen.email_recuperare or (citizen.user.email if citizen.user else None)
-                if target_email:
-                    send_mail(
-                        "Solicitare stergere chat",
-                        "Administratorul a cerut stergerea conversatiei. Confirma din fereastra de chat.",
-                        settings.DEFAULT_FROM_EMAIL,
-                        [target_email],
-                        fail_silently=True,
-                    )
                 messages.success(request, "Solicitarea a fost trimisa cetateanului.")
             else:
                 messages.info(request, "Exista deja o solicitare in asteptare pentru acest chat.")
@@ -816,10 +806,32 @@ def chat_thread(request, citizen_id=None):
         # cetateanul confirma stergere: trimitem email cu istoricul si stergem
         if not request.user.is_staff and request.POST.get("confirm_delete_chat"):
             if pending_delete:
-                history = []
-                for m in msgs.exclude(text=DELETE_TOKEN):
-                    history.append(f"{m.created_at} - {m.sender.username}: {m.text or ''}")
-                history_text = "\n".join(history) if history else "Conversatie goala."
+                history_msgs = Message.objects.filter(
+                    citizen=citizen, chat_thread=active_thread
+                ).exclude(text=DELETE_TOKEN).select_related("sender").order_by("created_at")
+                history_plain = []
+                history_html_parts = [
+                    "<h3>Copie conversatie chat</h3>",
+                    "<div style='font-family:Arial,sans-serif;font-size:14px;'>",
+                ]
+                for m in history_msgs:
+                    who = "Admin" if m.sender and m.sender.is_staff else "Cetatean"
+                    when = timezone.localtime(m.created_at).strftime("%Y-%m-%d %H:%M")
+                    text = m.text or ""
+                    history_plain.append(f"[{when}] {who}: {text}")
+                    history_html_parts.append(
+                        f"<div style='margin-bottom:8px;'><strong>{who}</strong> "
+                        f"<span style='color:#6c757d;'>{when}</span><br>"
+                        f"{text.replace(chr(10), '<br>')}</div>"
+                    )
+                    if m.attachment:
+                        history_plain.append(f"  Attachment: {m.attachment.url}")
+                        history_html_parts.append(
+                            f"<div style='margin:4px 0 8px;'><a href='{m.attachment.url}'>Attachment</a></div>"
+                        )
+                history_html_parts.append("</div>")
+                history_text = "\n".join(history_plain) if history_plain else "Conversatie goala."
+                history_html = "".join(history_html_parts) if history_plain else "<p>Conversatie goala.</p>"
                 target_email = citizen.email_recuperare or (citizen.user.email if citizen.user else None)
                 if target_email:
                     send_mail(
@@ -828,6 +840,7 @@ def chat_thread(request, citizen_id=None):
                         settings.DEFAULT_FROM_EMAIL,
                         [target_email],
                         fail_silently=True,
+                        html_message=history_html,
                     )
                 msgs.delete()
                 active_thread.delete()  # stergem si threadul pentru a disparea din lista
@@ -847,17 +860,6 @@ def chat_thread(request, citizen_id=None):
                 text=text,
                 attachment=attachment,
             )
-            # Email doar pentru cetatean, fara a umple badge-ul de notificari generale
-            if request.user.is_staff:
-                target_email = citizen.email_recuperare or (citizen.user.email if citizen.user else None)
-                if target_email:
-                    send_mail(
-                        "Mesaj nou in chat",
-                        "Ai primit un mesaj in chat.",
-                        settings.DEFAULT_FROM_EMAIL,
-                        [target_email],
-                        fail_silently=True,
-                    )
             return redirect(request.path + f"?thread={active_thread.id}")
 
     return render(

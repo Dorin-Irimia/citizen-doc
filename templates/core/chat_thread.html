@@ -65,7 +65,7 @@
   <div class="col-md-8 col-lg-9">
     <h1 class="h4 mb-3">Chat cu {{ citizen.full_name }}</h1>
 
-    <form method="post" enctype="multipart/form-data" class="card card-body shadow-sm mb-3">
+    <form method="post" enctype="multipart/form-data" class="card card-body shadow-sm mb-3" id="chat-form">
       {% csrf_token %}
       <div class="mb-2">
         <label class="form-label">Mesaj</label>
@@ -76,7 +76,10 @@
         <input type="file" name="attachment" class="form-control">
       </div>
       <div class="d-flex gap-2">
-        <button class="btn btn-primary">Trimite</button>
+        <button class="btn btn-primary" id="send-btn">
+          <span class="send-label">Trimite</span>
+          <span class="send-wait d-none">Se trimite...</span>
+        </button>
       </div>
     </form>
 
@@ -129,4 +132,21 @@
     {% endif %}
   </div>
 </div>
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    const form = document.getElementById("chat-form");
+    const sendBtn = document.getElementById("send-btn");
+    if (form && sendBtn) {
+      form.addEventListener("submit", function() {
+        sendBtn.disabled = true;
+        const lbl = sendBtn.querySelector(".send-label");
+        const wait = sendBtn.querySelector(".send-wait");
+        if (lbl && wait) {
+          lbl.classList.add("d-none");
+          wait.classList.remove("d-none");
+        }
+      });
+    }
+  });
+</script>
 {% endblock %}
