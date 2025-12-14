@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Chat{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col-md-4 col-lg-3">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h2 class="h5 mb-0">Conversatii</h2>
+      <form method="post" class="d-inline">
+        {% csrf_token %}
+        <input type="hidden" name="new_thread" value="1">
+        <button class="btn btn-sm btn-primary">+ Chat nou</button>
+      </form>
+    </div>
+    <div class="list-group mb-3">
+      {% for t in threads %}
+        <a class="list-group-item list-group-item-action {% if t.id == active_thread.id %}active{% endif %}" href="?thread={{ t.id }}">
+          {{ t.title|default:"Chat" }}
+          <div class="small text-muted">{{ t.created_at }}</div>
+        </a>
+      {% empty %}
+        <div class="text-muted">Nicio conversatie.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="col-md-8 col-lg-9">
+    <h1 class="h4 mb-3">Chat cu {{ citizen.full_name }}</h1>
+
+    <form method="post" enctype="multipart/form-data" class="card card-body shadow-sm mb-3">
+      {% csrf_token %}
+      <div class="mb-2">
+        <label class="form-label">Mesaj</label>
+        <textarea name="text" class="form-control" rows="3" placeholder="Scrie un mesaj..."></textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Atasament (optional)</label>
+        <input type="file" name="attachment" class="form-control">
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-primary">Trimite</button>
+      </div>
+    </form>
+
+    <div class="card shadow-sm mb-3">
+      <div class="card-body" style="max-height: 50vh; overflow-y: auto;">
+        {% if chat_messages %}
+          <div class="list-group">
+            {% for m in chat_messages %}
+              <div class="list-group-item">
+                <div class="d-flex justify-content-between small text-muted">
+                  <span>{{ m.created_at }} - {{ m.sender.username }}</span>
+                </div>
+                {% if m.text %}<div class="mt-1">{{ m.text|linebreaksbr }}</div>{% endif %}
+                {% if m.attachment %}
+                  <div class="mt-2">
+                    <a href="{{ m.attachment.url }}" target="_blank">Deschide fisier</a>
+                  </div>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted mb-0">Niciun mesaj.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if request.user.is_staff %}
+    <form method="post" class="card card-body shadow-sm">
+      {% csrf_token %}
+      <input type="hidden" name="request_delete" value="1">
+      <button class="btn btn-outline-danger" {% if pending_delete %}disabled{% endif %}>
+        {% if pending_delete %}Solicitare trimisa{% else %}Cere stergere conversatie{% endif %}
+      </button>
+    </form>
+    {% else %}
+      {% if pending_delete %}
+      <form method="post" class="card card-body shadow-sm">
+        {% csrf_token %}
+        <input type="hidden" name="confirm_delete_chat" value="1">
+        <p class="mb-2 text-muted">Administratorul a cerut stergerea conversatiei. Confirmi? Vei primi o copie pe email.</p>
+        <button class="btn btn-danger">Confirma stergerea</button>
+      </form>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

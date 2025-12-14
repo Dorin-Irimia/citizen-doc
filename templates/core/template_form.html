@@ -1,0 +1,471 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Template{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-3">{% if tmpl %}Editeaza template{% else %}Template nou{% endif %}</h1>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <form method="post" class="card shadow-sm">
+      <div class="card-body">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        <div class="mb-3">
+          <label class="form-label">Nume template</label>
+          {{ form.name }}
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Descriere</label>
+          {{ form.description }}
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Tip template</label>
+          {{ form.template_type }}
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Tip document</label>
+          {{ form.output_type }}
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Primarii vizate</label>
+          {% if form.municipalities %}
+            <div>
+              {% for checkbox in form.municipalities %}
+                <div class="form-check">
+                  {{ checkbox.tag }}
+                  <label class="form-check-label">{{ checkbox.choice_label }}</label>
+                </div>
+              {% endfor %}
+            </div>
+            {% if form.municipalities.help_text %}
+              <div class="form-text">{{ form.municipalities.help_text }}</div>
+            {% endif %}
+          {% else %}
+            <p class="text-muted small mb-0">Primaria ta va fi asignata automat.</p>
+          {% endif %}
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Campuri dinamice</label>
+          <div class="row g-2 align-items-end mb-2">
+            <div class="col-md-3">
+              <input type="text" id="dyn-key" class="form-control" placeholder="cheie (ex: termen)">
+            </div>
+            <div class="col-md-3">
+              <input type="text" id="dyn-label" class="form-control" placeholder="eticheta (ex: Termen de valabilitate)">
+            </div>
+            <div class="col-md-2">
+              <input type="number" id="dyn-length" class="form-control" placeholder="lungime" value="10" min="1">
+            </div>
+            <div class="col-md-2">
+              <select id="dyn-type" class="form-select">
+                <option value="text">text</option>
+                <option value="date">date</option>
+                <option value="time">time</option>
+                <option value="datetime">datetime</option>
+                <option value="year">year</option>
+                <option value="month">month</option>
+                <option value="day">day</option>
+                <option value="select">select</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <input type="text" id="dyn-options" class="form-control" placeholder="optiuni (ex: A,B,C)">
+            </div>
+            <div class="col-md-12 col-lg-1 d-grid">
+              <button type="button" id="dyn-add" class="btn btn-secondary w-100">+</button>
+            </div>
+          </div>
+          <input type="hidden" id="id_dynamic_fields_raw" name="dynamic_fields_raw" value="{{ form.dynamic_fields_raw.value|default_if_none:'' }}">
+          <div id="dyn-list" class="list-group mb-2"></div>
+          <div class="form-text">{{ form.dynamic_fields_raw.help_text }}</div>
+          {% if dynamic_library %}
+          <div class="mt-3">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="fw-semibold">Biblioteca campuri</span>
+              <small class="text-muted">click pe plus pentru a adauga</small>
+            </div>
+            <div class="list-group" id="dyn-library">
+              {% for lib in dynamic_library %}
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                  <div>
+                    <strong>{{ lib.label }}</strong> <span class="text-muted">({{ lib.key }}, {{ lib.length }})</span>
+                  </div>
+                  <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-primary dyn-lib-add" data-key="{{ lib.key }}" data-label="{{ lib.label }}" data-length="{{ lib.length }}">Adauga</button>
+                    {% if request.user.is_superuser %}
+                      <button type="button" class="btn btn-sm btn-outline-danger dyn-lib-del" data-id="{{ lib.id }}">Sterge</button>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Continut (HTML)</label>
+          {{ form.body_html }}
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary">Salveaza</button>
+          <a class="btn btn-secondary" href="{% url 'template_list' %}">Renunta</a>
+        </div>
+      </div>
+    </form>
+
+    <div class="mt-3">
+      <h5 class="mb-2">Campuri disponibile</h5>
+      <div class="d-flex gap-2 mb-2">
+        <button class="btn btn-outline-secondary btn-sm filter-btn" data-target="citizen">Campuri cetatean</button>
+        <button class="btn btn-outline-secondary btn-sm filter-btn" data-target="muni">Campuri institutie</button>
+        <button class="btn btn-outline-secondary btn-sm filter-btn" data-target="dyn">Campuri dinamice</button>
+        <button class="btn btn-outline-secondary btn-sm filter-btn" data-target="all">Toate</button>
+      </div>
+      <div class="list-group" id="field-list">
+        {% for f in fields_citizen %}
+          <button
+            class="list-group-item list-group-item-action field-insert"
+            type="button"
+            data-value="{{ f.placeholder|escape }}"
+            data-key="{{ f.name }}"
+            data-group="citizen"
+          >
+            Cetatean · {{ f.name }}
+          </button>
+        {% endfor %}
+        {% for f in fields_muni %}
+          <button
+            class="list-group-item list-group-item-action field-insert"
+            type="button"
+            data-value="{{ f.placeholder|escape }}"
+            data-key="{{ f.name }}"
+            data-group="muni"
+          >
+            Institutie · {{ f.name }}
+          </button>
+        {% endfor %}
+        <!-- dinamice vor fi inserate din JS -->
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5 class="card-title mb-0">Preview live</h5>
+          <small class="text-muted">inlocuieste automat campurile cu valori de test</small>
+        </div>
+        <div class="border rounded" style="height: 70vh; overflow:hidden;">
+          <iframe id="template-preview" title="Preview" style="width:100%; height:100%; border:0;"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="{% static 'ckeditor/ckeditor/ckeditor.js' %}"></script>
+<script src="{% static 'ckeditor/ckeditor-init.js' %}"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const headerLogo = "{{ header_logo_url|default:'' }}";
+  const headerBanner = "{{ header_banner_url|default:'' }}";
+  const sampleData = {};
+  const openVar = "{% templatetag openvariable %}";
+  const closeVar = "{% templatetag closevariable %}";
+  const defaultDynFields = [
+    { key: "data", label: "Data (calendar)", length: "10", type: "date", options: "" },
+    { key: "ora", label: "Ora", length: "5", type: "time", options: "" },
+    { key: "data_si_ora", label: "Data si ora", length: "20", type: "datetime", options: "" },
+  ];
+  document.querySelectorAll('.field-insert').forEach(btn => {
+    const key = btn.dataset.key;
+    sampleData[key] = sampleData[key] || `Exemplu ${key}`;
+    btn.addEventListener('click', () => {
+      const value = btn.dataset.value;
+      if (CKEDITOR.instances['id_body_html']) {
+        CKEDITOR.instances['id_body_html'].insertText(value);
+        CKEDITOR.instances['id_body_html'].focus();
+      }
+    });
+  });
+
+  // filtreaza campurile pe categorii
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.target;
+      document.querySelectorAll('.field-insert').forEach(item => {
+        const group = item.dataset.group;
+        if (target === 'all') {
+          item.style.display = "block";
+        } else {
+          item.style.display = (target === group) ? "block" : "none";
+        }
+      });
+    });
+  });
+
+  // gestioneaza campurile dinamice (textarea + butoane + lista cu use/delete)
+  const dynTextarea = document.getElementById("id_dynamic_fields_raw");
+  const fieldList = document.getElementById("field-list");
+  const dynList = document.getElementById("dyn-list");
+  let dynData = [];
+
+  function parseDynTextarea() {
+    dynData = [];
+    if (!dynTextarea) return;
+    const lines = dynTextarea.value.split(/\r?\n/).filter(Boolean);
+    lines.forEach(line => {
+      const parts = line.split("|").map(p => p.trim());
+      if (parts.length >= 1 && parts[0]) {
+        dynData.push({
+          key: parts[0],
+          label: parts.length > 1 ? parts[1] : parts[0],
+          length: parts.length > 2 ? parts[2] : "10",
+          type: parts.length > 3 ? parts[3] : "text",
+          options: parts.length > 4 ? parts[4] : "",
+        });
+      }
+    });
+  }
+
+  function syncDynTextarea() {
+    if (!dynTextarea) return;
+    dynTextarea.value = dynData
+      .map(d => `${d.key}|${d.label}|${d.length}|${d.type || "text"}|${d.options || ""}`)
+      .join("\n");
+  }
+
+  function renderDynList() {
+    if (!dynList) return;
+    dynList.innerHTML = "";
+    if (!dynData.length) {
+      dynList.innerHTML = '<div class="list-group-item text-muted small">Nicio intrare. Adauga mai sus.</div>';
+      return;
+    }
+    dynData.forEach((d, idx) => {
+      const item = document.createElement("div");
+      item.className = "list-group-item d-flex justify-content-between align-items-center";
+      item.innerHTML = `<div><strong>${d.label}</strong> <span class="text-muted">(${d.key}, ${d.length}, ${d.type || "text"})</span></div>`;
+      const actions = document.createElement("div");
+      actions.className = "d-flex gap-2";
+      const btnUse = document.createElement("button");
+      btnUse.type = "button";
+      btnUse.className = "btn btn-sm btn-outline-primary";
+      btnUse.textContent = "Use";
+      btnUse.addEventListener("click", () => {
+        const placeholder = `${openVar} ${d.key} ${closeVar}`;
+        if (CKEDITOR.instances['id_body_html']) {
+          CKEDITOR.instances['id_body_html'].insertText(placeholder);
+          CKEDITOR.instances['id_body_html'].focus();
+        }
+      });
+      const btnDel = document.createElement("button");
+      btnDel.type = "button";
+      btnDel.className = "btn btn-sm btn-outline-danger";
+      btnDel.textContent = "Sterge";
+      btnDel.addEventListener("click", () => {
+        dynData.splice(idx, 1);
+        syncDynTextarea();
+        renderDynList();
+        rebuildDynamicButtons();
+      });
+      actions.append(btnUse, btnDel);
+      item.appendChild(actions);
+      dynList.appendChild(item);
+    });
+  }
+
+  function rebuildDynamicButtons() {
+    fieldList.querySelectorAll('.field-insert[data-group="dyn"]').forEach(el => el.remove());
+    // campuri dinamice predefinite (date/ora) ca insert rapid
+    defaultDynFields.forEach(d => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "list-group-item list-group-item-action field-insert";
+      btn.dataset.group = "dyn";
+      btn.dataset.key = d.key;
+      btn.dataset.value = `${openVar} ${d.key} ${closeVar}`;
+      btn.textContent = "Dinamic · " + d.label;
+      btn.addEventListener("click", () => {
+        addOrReplaceDyn(d.key, d.label, d.length, d.type || "text", d.options || "");
+        syncDynTextarea();
+        renderDynList();
+        const value = btn.dataset.value;
+        if (CKEDITOR.instances['id_body_html']) {
+          CKEDITOR.instances['id_body_html'].insertText(value);
+          CKEDITOR.instances['id_body_html'].focus();
+        }
+      });
+      fieldList.appendChild(btn);
+    });
+    if (dynData.length) {
+      dynData.forEach(d => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "list-group-item list-group-item-action field-insert";
+        btn.dataset.group = "dyn";
+        btn.dataset.key = d.key;
+        btn.dataset.value = `${openVar} ${d.key} ${closeVar}`;
+        btn.textContent = "Dinamic · " + d.label;
+        btn.addEventListener("click", () => {
+          addOrReplaceDyn(d.key, d.label, d.length, d.type || "text", d.options || "");
+          syncDynTextarea();
+          renderDynList();
+          const value = btn.dataset.value;
+          if (CKEDITOR.instances['id_body_html']) {
+            CKEDITOR.instances['id_body_html'].insertText(value);
+            CKEDITOR.instances['id_body_html'].focus();
+          }
+        });
+        fieldList.appendChild(btn);
+      });
+    }
+  }
+
+  parseDynTextarea();
+  renderDynList();
+  rebuildDynamicButtons();
+  if (dynTextarea) {
+    dynTextarea.addEventListener("input", () => {
+      parseDynTextarea();
+      renderDynList();
+      rebuildDynamicButtons();
+    });
+  }
+
+  // adaugare rapida de camp dinamic
+  const dynKey = document.getElementById("dyn-key");
+  const dynLabel = document.getElementById("dyn-label");
+  const dynLength = document.getElementById("dyn-length");
+  const dynType = document.getElementById("dyn-type");
+  const dynOptions = document.getElementById("dyn-options");
+  const dynAdd = document.getElementById("dyn-add");
+  const dynLibraryList = document.getElementById("dyn-library");
+
+  function addOrReplaceDyn(key, label, length, type="text", options="") {
+    const idx = dynData.findIndex(d => d.key === key);
+    const entry = { key, label, length, type, options };
+    if (idx >= 0) {
+      dynData[idx] = entry;
+    } else {
+      dynData.push(entry);
+    }
+  }
+
+  if (dynAdd && dynTextarea) {
+    dynAdd.addEventListener("click", () => {
+      const key = (dynKey.value || "").trim();
+      const label = (dynLabel.value || "").trim();
+      const length = (dynLength.value || "").trim() || "10";
+      const type = dynType ? dynType.value : "text";
+      const options = dynOptions ? dynOptions.value : "";
+      if (!key || !label) return;
+      addOrReplaceDyn(key, label, length, type, options);
+      syncDynTextarea();
+      dynKey.value = "";
+      dynLabel.value = "";
+      dynLength.value = "10";
+      if (dynOptions) dynOptions.value = "";
+      renderDynList();
+      rebuildDynamicButtons();
+    });
+  }
+
+  if (dynLibraryList) {
+    dynLibraryList.querySelectorAll(".dyn-lib-add").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.key;
+        const label = btn.dataset.label;
+        const length = btn.dataset.length || "10";
+        addOrReplaceDyn(key, label, length);
+        syncDynTextarea();
+        renderDynList();
+        rebuildDynamicButtons();
+      });
+    });
+    dynLibraryList.querySelectorAll(".dyn-lib-del").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.id;
+        if (!id) return;
+        if (!confirm("Stergi definitia din biblioteca?")) return;
+        fetch("{% url 'dynamic_field_delete' 0 %}".replace("0", id), {
+          method: "POST",
+          headers: { "X-CSRFToken": (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || "" },
+        })
+          .then(resp => resp.ok ? location.reload() : alert("Nu am putut sterge campul."))
+          .catch(() => alert("Nu am putut sterge campul."));
+      });
+    });
+  }
+
+  const previewFrame = document.getElementById("template-preview");
+  const editorInstance = CKEDITOR.instances['id_body_html'];
+  const templateForm = document.querySelector("form");
+
+  // corecteaza inserarile gresite "+ key +" inainte de submit
+  if (templateForm && editorInstance) {
+    templateForm.addEventListener("submit", () => {
+      const keys = dynData.map(d => d.key).filter(Boolean);
+      if (!keys.length) return;
+      let html = editorInstance.getData();
+      keys.forEach(k => {
+        const pattern = new RegExp("\\+\\s*" + k + "\\s*\\+", "g");
+        html = html.replace(pattern, "{{ " + k + " }}");
+      });
+      editorInstance.setData(html);
+    });
+  }
+
+  function renderPreview() {
+    const html = editorInstance ? editorInstance.getData() : document.getElementById("id_body_html").value;
+    let rendered = html || "<p>Scrie continutul pentru a vedea preview-ul.</p>";
+    Object.entries(sampleData).forEach(([k, v]) => {
+      const token = new RegExp("\\{\\{\\s*" + k + "\\s*\\}\\}", "g");
+      rendered = rendered.replace(token, v);
+    });
+    const labelStyle = "height:32mm; width:52mm; object-fit:contain; display:block; margin:0 auto;";
+    const barStyle = "height:32mm; width:40mm; background:#444; margin:0 auto; display:block;";
+    const left = headerLogo ? `<img src="${headerLogo}" alt="Sigla" style="${labelStyle}">` : `<div style="${labelStyle} border:1px dashed #bbb;"></div>`;
+    const right = headerBanner ? `<img src="${headerBanner}" alt="Banner" style="${labelStyle}">` : `<div style="${labelStyle} border:1px dashed #bbb;"></div>`;
+    const header = `
+      <table style="width:100%; margin-bottom:12px; table-layout:fixed;">
+        <tr style="height:32mm;">
+          <td style="width:35%; text-align:center; vertical-align:middle; overflow:hidden;">${left}</td>
+          <td style="width:30%; text-align:center; vertical-align:middle; overflow:hidden;"><div style="${barStyle}"></div></td>
+          <td style="width:35%; text-align:center; vertical-align:middle; overflow:hidden;">${right}</td>
+        </tr>
+      </table>
+    `;
+    previewFrame.srcdoc = `
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 24px; }
+            table { width: 100%; border-collapse: collapse; }
+            table, th, td { border: 1px solid #ddd; }
+            th, td { padding: 8px; }
+            .placeholder { border:1px dashed #bbb; }
+          </style>
+        </head>
+        <body>${header}${rendered}</body>
+      </html>
+    `;
+  }
+
+  if (editorInstance) {
+    editorInstance.on('change', renderPreview);
+    editorInstance.on('instanceReady', renderPreview);
+  } else {
+    const textarea = document.getElementById("id_body_html");
+    if (textarea) {
+      textarea.addEventListener("input", renderPreview);
+      renderPreview();
+    }
+  }
+});
+</script>
+{% endblock %}

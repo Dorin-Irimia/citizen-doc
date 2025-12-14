@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Chat{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <h1 class="h5 mb-3">Chat cu {{ citizen.full_name }}</h1>
+    <div class="card mb-3" style="max-height: 60vh; overflow-y: auto;">
+      <div class="card-body">
+        {% for msg in messages %}
+          <div class="mb-2">
+            <div class="small text-muted">
+              {{ msg.created_at }} - {{ msg.sender.username }}
+            </div>
+            <div class="p-2 border rounded bg-light">{{ msg.text|linebreaksbr }}</div>
+          </div>
+        {% empty %}
+          <p class="text-muted mb-0">Nicio conversatie inca.</p>
+        {% endfor %}
+      </div>
+    </div>
+    <form method="post" class="card card-body shadow-sm">
+      {% csrf_token %}
+      <div class="mb-3">
+        <label class="form-label">Mesaj</label>
+        <textarea name="text" class="form-control" rows="3" required></textarea>
+      </div>
+      <button class="btn btn-primary">Trimite</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Invita administrator{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <h1 class="h4 mb-3">Invita administrator primarie</h1>
+    <form method="post" class="card card-body shadow-sm">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      <div class="mb-3">
+        <label class="form-label">Email administrator</label>
+        {{ form.email }}
+        {{ form.email.errors }}
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Primarie</label>
+        {{ form.municipality }}
+        {{ form.municipality.errors }}
+      </div>
+      <button class="btn btn-primary">Trimite invitatie</button>
+      <a class="btn btn-secondary" href="{% url 'citizen_list' %}">Renunta</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

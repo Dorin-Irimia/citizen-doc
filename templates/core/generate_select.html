@@ -1,0 +1,422 @@
+{% extends "base.html" %}
+{% block title %}Genereaza document{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">{% if citizen_mode %}Cere document{% else %}Genereaza document{% endif %}</h1>
+
+<form method="post" id="generate-form">
+  {% csrf_token %}
+  <input type="hidden" name="direct_generate" id="direct-generate-flag" value="0">
+  <div class="row g-3 align-items-stretch">
+    <div class="col-lg-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <h5 class="card-title h6 d-flex justify-content-between align-items-center">
+            <span>Selectie</span>
+            <small class="text-muted">Completeaza pasii</small>
+          </h5>
+          {% if municipalities %}
+            <div class="mb-3">
+              <label class="form-label">Institutie</label>
+              <select class="form-select" name="municipality_id" id="municipality-select">
+                <option value="">-- alege institutie --</option>
+                {% for m in municipalities %}
+                  <option value="{{ m.id }}"{% if selected_muni and selected_muni.id == m.id %} selected{% endif %}>{{ m.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          {% endif %}
+          {% if not citizen_mode %}
+            <div class="mb-3">
+              <label class="form-label">Cetatean</label>
+              <select class="form-select" name="citizen_id" id="citizen-select" required>
+                <option value="">-- alege cetatean --</option>
+                {% for c in citizens %}
+                <option value="{{ c.pk }}">{{ c.full_name }} ({{ c.identifier }})</option>
+                {% endfor %}
+              </select>
+            </div>
+          {% else %}
+            <input type="hidden" name="citizen_id" value="{{ citizens.0.pk }}" id="citizen-hidden">
+            <p class="text-muted small mb-3">Documentul va fi generat pentru contul tau.</p>
+          {% endif %}
+
+          <div class="mb-3">
+            <label class="form-label">Template</label>
+            <select class="form-select" name="template_slug" id="template-select" required>
+              <option value="">-- alege template --</option>
+              {% for t in templates %}
+              <option value="{{ t.slug }}" data-type="{{ t.template_type }}">{{ t.name }} ({{ t.get_output_type_display }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="d-grid gap-2">
+            <button class="btn btn-success" id="action-button">Genereaza</button>
+            <div class="small text-muted" id="action-help">Preview-ul si campurile se actualizeaza automat dupa selectie.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-8">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="card-title h6 mb-0">Campuri de completat</h5>
+            <small class="text-muted">se salveaza la generare</small>
+          </div>
+          <div id="dynamic-fields" class="small text-muted">Selecteaza un template pentru a vedea campurile.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mt-1">
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-body d-flex flex-column">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="card-title h6 mb-0">Preview document</h5>
+            <small id="preview-status" class="text-muted">In asteptare selectie</small>
+          </div>
+          <div class="border rounded bg-white flex-grow-1" style="height: 78vh; min-height: 520px; overflow:hidden; background:#f5f7fb;">
+            <iframe id="live-preview" title="Preview document" style="width:100%; height:100%; border:0;"></iframe>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const templateSelect = document.getElementById("template-select");
+    const citizenSelect = document.getElementById("citizen-select");
+    const citizenHidden = document.getElementById("citizen-hidden");
+    const municipalitySelect = document.getElementById("municipality-select");
+    const dynamicFields = document.getElementById("dynamic-fields");
+    const previewFrame = document.getElementById("live-preview");
+    const previewStatus = document.getElementById("preview-status");
+    const directFlag = document.getElementById("direct-generate-flag");
+    const actionButton = document.getElementById("action-button");
+    const actionHelp = document.getElementById("action-help");
+    const previewUrl = "{% url 'generate_preview' %}";
+    let debounceTimer = null;
+    let renderedFieldsKey = "";
+
+    function getCsrf() {
+      const match = document.cookie.match(/csrftoken=([^;]+)/);
+      return match ? match[1] : "";
+    }
+
+    function currentCitizen() {
+      if (citizenHidden) return citizenHidden.value;
+      return citizenSelect ? citizenSelect.value : "";
+    }
+
+    function renderPreview(html) {
+      if (!html) {
+        previewFrame.srcdoc = "<div style='padding:16px; color:#6c757d; font-family:Arial,sans-serif;'>Selecteaza cetateanul si template-ul pentru a vedea documentul.</div>";
+        return;
+      }
+      previewFrame.srcdoc = `
+        <html>
+          <head>
+            <style>
+              * { box-sizing: border-box; }
+              html, body { margin: 0; padding: 0; height: 100%; background: #f5f7fb; }
+              body { display: flex; justify-content: center; align-items: flex-start; overflow: auto; }
+              .page {
+                background: white;
+                width: 794px; /* ~ A4 width at 96dpi */
+                min-height: 1123px; /* ~ A4 height */
+                padding: 32px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+                margin: 24px auto;
+                color: #222;
+                font-family: Arial, sans-serif;
+                overflow: hidden;
+              }
+              table { width: 100%; border-collapse: collapse; }
+              img { max-width: 100%; }
+            </style>
+          </head>
+          <body>
+            <div class="page">${html}</div>
+          </body>
+        </html>`;
+    }
+
+    function clearPreview(message) {
+      previewStatus.textContent = message || "In asteptare selectie";
+      renderPreview("");
+      directFlag.value = "0";
+      renderedFieldsKey = "";
+    }
+
+    function renderDynamicFields(fields) {
+      dynamicFields.innerHTML = "";
+      if (!fields || !fields.length) {
+        dynamicFields.innerHTML = '<p class="text-muted small mb-0">Niciun camp suplimentar pentru acest template.</p>';
+        return;
+      }
+      fields.forEach((field) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "mb-3";
+
+        const label = document.createElement("label");
+        label.className = "form-label mb-1";
+        label.textContent = field.label + " ";
+        const keyHint = document.createElement("span");
+        keyHint.className = "text-muted";
+        keyHint.textContent = `(${field.key})`;
+        label.appendChild(keyHint);
+
+        let input;
+        const type = field.type || "text";
+        if (type === "select") {
+          input = document.createElement("select");
+          input.className = "form-select form-select-sm";
+          input.name = field.key;
+          input.dataset.dynKey = field.key;
+          const opts = (field.options || "").split(",").map(o => o.trim()).filter(Boolean);
+          const emptyOpt = document.createElement("option");
+          emptyOpt.value = "";
+          emptyOpt.textContent = "-- alege --";
+          input.appendChild(emptyOpt);
+          opts.forEach(o => {
+            const opt = document.createElement("option");
+            opt.value = o;
+            opt.textContent = o;
+            if (field.value && field.value === o) opt.selected = true;
+            input.appendChild(opt);
+          });
+        } else {
+          input = document.createElement("input");
+          input.className = "form-control form-control-sm";
+          input.name = field.key;
+          input.dataset.dynKey = field.key;
+          if (type === "datetime") { input.type = "text"; }
+          else if (type === "date") input.type = "date";
+          else if (type === "time") input.type = "time";
+          else if (type === "year") { input.type = "number"; input.min = "1900"; input.max = "2100"; input.step = "1"; }
+          else if (type === "month") { input.type = "number"; input.min = "1"; input.max = "12"; input.step = "1"; }
+          else if (type === "day") { input.type = "number"; input.min = "1"; input.max = "31"; input.step = "1"; }
+          else input.type = "text";
+          input.value = field.value || "";
+          if (field.underline && input.type === "text") input.placeholder = field.underline;
+        }
+
+        const help = document.createElement("div");
+        help.className = "form-text";
+        help.textContent = `Lungime implicita: ${field.length}`;
+
+        wrapper.appendChild(label);
+        wrapper.appendChild(input);
+        // adaugam selector manual pentru data/ora
+        if (["date", "datetime", "time"].includes(type)) {
+          const pickerRow = document.createElement("div");
+          pickerRow.className = "d-flex flex-wrap gap-2 mt-1 align-items-center";
+          const now = new Date();
+          const yearSel = document.createElement("select");
+          yearSel.className = "form-select form-select-sm";
+          yearSel.style.maxWidth = "110px";
+          const curYear = now.getFullYear();
+          for (let y = curYear - 5; y <= curYear + 5; y++) {
+            const opt = document.createElement("option");
+            opt.value = y;
+            opt.textContent = y;
+            yearSel.appendChild(opt);
+          }
+          const monthSel = document.createElement("select");
+          monthSel.className = "form-select form-select-sm";
+          monthSel.style.maxWidth = "90px";
+          for (let m = 1; m <= 12; m++) {
+            const opt = document.createElement("option");
+            opt.value = m.toString().padStart(2, "0");
+            opt.textContent = m.toString().padStart(2, "0");
+            monthSel.appendChild(opt);
+          }
+          const daySel = document.createElement("select");
+          daySel.className = "form-select form-select-sm";
+          daySel.style.maxWidth = "90px";
+          for (let d = 1; d <= 31; d++) {
+            const opt = document.createElement("option");
+            opt.value = d.toString().padStart(2, "0");
+            opt.textContent = d.toString().padStart(2, "0");
+            daySel.appendChild(opt);
+          }
+          const hourSel = document.createElement("select");
+          hourSel.className = "form-select form-select-sm";
+          hourSel.style.maxWidth = "90px";
+          for (let h = 0; h <= 23; h++) {
+            const opt = document.createElement("option");
+            opt.value = h.toString().padStart(2, "0");
+            opt.textContent = h.toString().padStart(2, "0");
+            hourSel.appendChild(opt);
+          }
+          const minuteSel = document.createElement("select");
+          minuteSel.className = "form-select form-select-sm";
+          minuteSel.style.maxWidth = "90px";
+          for (let mi = 0; mi <= 59; mi++) {
+            const opt = document.createElement("option");
+            opt.value = mi.toString().padStart(2, "0");
+            opt.textContent = mi.toString().padStart(2, "0");
+            minuteSel.appendChild(opt);
+          }
+          // initialize selections based on existing value
+          const rawVal = (field.value || "").trim();
+          if (rawVal) {
+            const parts = rawVal.split(/[T\s]/);
+            if (parts[0]) {
+              const seg = parts[0].includes("-") ? parts[0].split("-") : parts[0].split(".");
+              if (seg[0]) yearSel.value = seg[0];
+              if (seg[1]) monthSel.value = seg[1].padStart(2, "0");
+              if (seg[2]) daySel.value = seg[2].padStart(2, "0");
+            }
+            if (parts[1]) {
+              const seg2 = parts[1].split(":");
+              if (seg2[0]) hourSel.value = seg2[0].padStart(2, "0");
+              if (seg2[1]) minuteSel.value = seg2[1].padStart(2, "0");
+            }
+          } else {
+            yearSel.value = curYear;
+          }
+
+          function syncFromSelects() {
+            const y = yearSel.value;
+            const mo = monthSel.value;
+            const d = daySel.value;
+            const h = hourSel.value;
+            const mi = minuteSel.value;
+            if (type === "date") {
+              input.value = `${y}-${mo}-${d}`;
+            } else if (type === "time") {
+              input.value = `${h}:${mi}`;
+            } else {
+              input.value = `${y}-${mo}-${d}T${h}:${mi}`;
+            }
+            schedulePreview();
+          }
+          yearSel.addEventListener("change", syncFromSelects);
+          monthSel.addEventListener("change", syncFromSelects);
+          daySel.addEventListener("change", syncFromSelects);
+          hourSel.addEventListener("change", syncFromSelects);
+          minuteSel.addEventListener("change", syncFromSelects);
+
+          input.addEventListener("input", () => {
+            const val = input.value.trim();
+            const parts = val.split(/[T\s]/);
+            if (parts[0]) {
+              const seg = parts[0].includes("-") ? parts[0].split("-") : parts[0].split(".");
+              if (seg[0]) yearSel.value = seg[0];
+              if (seg[1]) monthSel.value = seg[1].padStart(2, "0");
+              if (seg[2]) daySel.value = seg[2].padStart(2, "0");
+            }
+            if (parts[1]) {
+              const seg2 = parts[1].split(":");
+              if (seg2[0]) hourSel.value = seg2[0].padStart(2, "0");
+              if (seg2[1]) minuteSel.value = seg2[1].padStart(2, "0");
+            }
+          });
+
+          if (type !== "time") {
+            pickerRow.appendChild(yearSel);
+            pickerRow.appendChild(monthSel);
+            pickerRow.appendChild(daySel);
+          }
+          if (type !== "date") {
+            pickerRow.appendChild(hourSel);
+            pickerRow.appendChild(minuteSel);
+          }
+          wrapper.appendChild(pickerRow);
+        }
+        wrapper.appendChild(help);
+        dynamicFields.appendChild(wrapper);
+      });
+      dynamicFields.querySelectorAll("input[data-dyn-key], select[data-dyn-key]").forEach((input) => {
+        input.addEventListener("input", schedulePreview);
+      });
+    }
+
+    function buildFormData() {
+      const fd = new FormData();
+      fd.append("template_slug", templateSelect ? templateSelect.value : "");
+      fd.append("citizen_id", currentCitizen());
+      if (municipalitySelect) {
+        fd.append("municipality_id", municipalitySelect.value);
+      }
+      dynamicFields.querySelectorAll("input[data-dyn-key]").forEach((inp) => {
+        fd.append(inp.name, inp.value);
+      });
+      return fd;
+    }
+
+    function loadPreview() {
+      const citizenId = currentCitizen();
+      const templateSlug = templateSelect ? templateSelect.value : "";
+      if (!citizenId || !templateSlug) {
+        clearPreview("In asteptare selectie");
+        dynamicFields.innerHTML = '<p class="text-muted small mb-0">Selecteaza un template pentru a vedea campurile.</p>';
+        setActionUi(selectedTemplateType());
+        return;
+      }
+      const fieldsKey = `${citizenId}-${templateSlug}`;
+      previewStatus.textContent = "Se incarca preview...";
+      const fd = buildFormData();
+      fetch(previewUrl, {
+        method: "POST",
+        headers: { "X-CSRFToken": getCsrf() },
+        body: fd,
+      })
+        .then((resp) => resp.json().then((data) => ({ ok: resp.ok, data })))
+        .then(({ ok, data }) => {
+          if (!ok || data.error) {
+            clearPreview(data.error || "Nu s-a putut genera preview-ul");
+            dynamicFields.innerHTML = '<p class="text-danger small mb-0">' + (data.error || "Nu s-a putut genera preview-ul") + "</p>";
+            setActionUi(selectedTemplateType());
+            return;
+          }
+          previewStatus.textContent = `${data.template_name} (${data.output_type})`;
+          setActionUi(data.template_type, data.action_label);
+          if (renderedFieldsKey !== fieldsKey) {
+            renderDynamicFields(data.dynamic_fields || []);
+            renderedFieldsKey = fieldsKey;
+          }
+          renderPreview(data.html);
+          directFlag.value = "1";
+        })
+        .catch(() => {
+          clearPreview("Nu am putut incarca preview-ul");
+        });
+    }
+
+    function schedulePreview() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(loadPreview, 300);
+    }
+
+    function selectedTemplateType() {
+      if (!templateSelect) return "generate";
+      const opt = templateSelect.selectedOptions[0];
+      return opt ? (opt.dataset.type || "generate") : "generate";
+    }
+
+    function setActionUi(type, label) {
+      const tplType = type || selectedTemplateType();
+      const isWorkflow = tplType === "workflow";
+      if (actionButton) actionButton.textContent = label || (isWorkflow ? "Trimite" : "Genereaza");
+      if (actionHelp) actionHelp.textContent = isWorkflow
+        ? "Trimite documentul pe flux catre primarie (va putea fi semnat)."
+        : "Genereaza imediat documentul.";
+    }
+
+    if (templateSelect) templateSelect.addEventListener("change", schedulePreview);
+    if (citizenSelect) citizenSelect.addEventListener("change", schedulePreview);
+    if (municipalitySelect) municipalitySelect.addEventListener("change", schedulePreview);
+
+    // incarca preview initial daca avem selectie precompletata
+    setActionUi(selectedTemplateType());
+    schedulePreview();
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Contul meu{% endblock %}
+{% block content %}
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+      <div>
+        <div class="text-muted small">Bine ai revenit</div>
+        <h1 class="h4 mb-1">{{ citizen.full_name }}</h1>
+        <div class="small text-muted">Status: <span class="badge bg-info text-dark">{{ citizen.get_profile_status_display }}</span></div>
+      </div>
+      <div class="text-end">
+        {% if citizen.profile_status == "pending_validation" %}
+          <span class="badge bg-warning text-dark">Asteapta validare</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="action-grid mt-3">
+      <a href="{% url 'citizen_self_edit' %}" class="action-tile">
+        <span>Editeaza profil</span>
+        <i class="badge bg-secondary">profil</i>
+      </a>
+      <a href="{% url 'citizen_chat' %}" class="action-tile position-relative">
+        <span>Chat cu primarie</span>
+        {% if staff_msg_count %}
+          <span class="badge bg-danger">+{{ staff_msg_count }}</span>
+        {% else %}
+          <i class="badge bg-primary">chat</i>
+        {% endif %}
+      </a>
+      <a href="{% url 'confirm_email' %}" class="action-tile">
+        <span>Confirma email</span>
+        <i class="badge bg-primary">email</i>
+      </a>
+      <a href="{% url 'citizen_request_document' %}" class="action-tile">
+        <span>Cere document</span>
+        <i class="badge bg-success">nou</i>
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="mb-3">
+  {% if citizen.profile_status == "pending_validation" %}
+    <div class="alert alert-warning">Profilul tau asteapta validarea administratorului. Nu poti genera documente acum.</div>
+  {% endif %}
+</div>
+
+<div class="card h-100 mb-3">
+  <div class="card-body">
+    <h5 class="card-title">Documente in lucru</h5>
+    {% if work_items %}
+      <ul class="list-group list-group-flush">
+        {% for item in work_items %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              <div class="fw-semibold">{{ item.template.name }}</div>
+              <small class="text-muted">{{ item.created_at }}</small>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+              <span class="badge bg-secondary">{{ item.get_status_display }}</span>
+              {% if item.final_document %}
+                <a class="btn btn-sm btn-outline-secondary" href="{% url 'document_preview' item.final_document.id %}" target="_blank">Preview</a>
+              {% endif %}
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-muted mb-0">Nu exista documente in lucru.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">Documente primite</h5>
+        {% if documents %}
+          <ul class="list-group list-group-flush">
+            {% for doc in documents %}
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                  <div class="fw-semibold">{{ doc.template.name }}</div>
+                  <small class="text-muted">{{ doc.created_at }}</small>
+                </div>
+                <div class="d-flex gap-2">
+                  <a class="btn btn-sm btn-outline-secondary" href="{% url 'document_preview' doc.id %}" target="_blank">Preview</a>
+                  <a class="btn btn-sm btn-primary" href="{{ doc.file.url }}" download>Descarca</a>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted mb-0">Nu ai documente inca.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">Notificari</h5>
+        {% if notifications %}
+          <ul class="list-group list-group-flush">
+            {% for n in notifications %}
+              <li class="list-group-item">
+                <div class="fw-semibold">{{ n.title }}</div>
+                <div class="small text-muted">{{ n.created_at }}</div>
+                {% if n.message %}<div>{{ n.message }}</div>{% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted mb-0">Nicio notificare.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,360 @@
+{% extends "base.html" %}
+{% block title %}Concedii{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <h1 class="h4 mb-0">Concedii</h1>
+    <div class="text-muted small">Evidenta zilelor de concediu si cereri</div>
+  </div>
+  <div class="d-flex gap-2">
+    <form method="get" class="d-flex align-items-center gap-2">
+      <label class="text-muted small mb-0">Cetatean/angajat</label>
+      <select name="citizen" class="form-select form-select-sm" onchange="this.form.submit()">
+        {% for c in citizens %}
+          <option value="{{ c.id }}" {% if c.id == selected_citizen.id %}selected{% endif %}>{{ c.full_name }}</option>
+        {% endfor %}
+      </select>
+      <label class="text-muted small mb-0 ms-2">An</label>
+      <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+        {% for y in year_options %}
+          <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <h5 class="h6 card-title">Zile libere legale</h5>
+        <p class="text-muted small mb-2">Adauga zile libere legale (se scad automat din cereri).</p>
+        <form method="post" class="row g-2 align-items-end mb-3">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="add_holiday">
+          <input type="hidden" name="citizen_id" value="{{ selected_citizen.id }}">
+          <div class="col-6">
+            <label class="form-label small mb-1">Data</label>
+            <input type="date" class="form-control form-control-sm" name="holiday_date" required>
+          </div>
+          <div class="col-6">
+            <label class="form-label small mb-1">Label</label>
+            <input type="text" class="form-control form-control-sm" name="holiday_label" required>
+          </div>
+          <div class="col-12 d-flex justify-content-end">
+            <button type="submit" class="btn btn-outline-primary btn-sm">Adauga</button>
+          </div>
+        </form>
+        {% if holiday_list %}
+          <div class="small">
+            {% for h in holiday_list %}
+              <span class="badge bg-light text-dark border me-1 mb-1">
+                {{ h.date }} - {{ h.label }}
+                {% if not h.is_global or request.user.is_superuser %}
+                  <form method="post" class="d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete_holiday">
+                    <input type="hidden" name="citizen_id" value="{{ selected_citizen.id }}">
+                    <input type="hidden" name="year" value="{{ selected_year }}">
+                    <input type="hidden" name="holiday_id" value="{{ h.id }}">
+                    <button type="submit" class="btn btn-sm btn-link text-danger p-0 ms-1">sterge</button>
+                  </form>
+                {% endif %}
+              </span>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-muted small">Nicio zi libera setata.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <h5 class="h6 card-title">Date contract</h5>
+        <form method="post" class="row g-2 align-items-end">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="update_contract">
+          <input type="hidden" name="citizen_id" value="{{ selected_citizen.id }}">
+          <div class="col-12">
+            <label class="form-label small">Data inceput contract</label>
+            <input type="date" class="form-control form-control-sm" name="contract_start" value="{{ selected_citizen.contract_start|date:'Y-m-d' }}">
+          </div>
+          <div class="col-12">
+            <label class="form-label small">Zile concediu/an</label>
+            <input type="number" min="1" max="60" class="form-control form-control-sm" name="annual_leave_days" value="{{ selected_citizen.annual_leave_days|default:21 }}">
+          </div>
+          <div class="col-12 d-flex justify-content-end">
+            <button type="submit" class="btn btn-secondary btn-sm">Salveaza</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="h6 card-title">Statistici {{ stats.year }}</h5>
+        <div class="d-flex flex-column gap-2">
+          <div class="badge bg-primary-subtle text-primary py-2 px-3">
+            Alocate/an: <strong>{{ stats.allowance }}</strong>
+          </div>
+          <div class="badge bg-success-subtle text-success py-2 px-3">
+            Disponibile: <strong id="available-days">{{ stats.available }}</strong>
+          </div>
+          <div class="badge bg-info-subtle text-info py-2 px-3">
+            Acumulate: <strong>{{ stats.accrued }}</strong>
+          </div>
+          <div class="badge bg-warning-subtle text-warning py-2 px-3">
+            Folosite: <strong>{{ stats.used }}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5 class="h6 mb-0">Calendar concedii</h5>
+          <div class="d-flex gap-2 align-items-center">
+            <button class="btn btn-outline-secondary btn-sm" id="admin-prev-month">&#8592;</button>
+            <div id="admin-month-label" class="fw-bold small"></div>
+            <button class="btn btn-outline-secondary btn-sm" id="admin-next-month">&#8594;</button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-bordered align-middle mb-0" style="min-width:520px;">
+            <thead class="table-light text-center">
+              <tr>
+                <th class="p-1">L</th><th class="p-1">M</th><th class="p-1">M</th><th class="p-1">J</th><th class="p-1">V</th><th class="p-1">S</th><th class="p-1">D</th>
+              </tr>
+            </thead>
+            <tbody id="admin-cal-body"></tbody>
+          </table>
+        </div>
+        <div class="small text-muted mt-2">Legenda: aprobat (verde), in asteptare (galben), respins (rosu), zile legale & weekend (mov).</div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5 class="h6 mb-0">Creeaza cerere de concediu</h5>
+          <small class="text-muted">Zile disponibile: {{ stats.available }}</small>
+        </div>
+        <form method="post" class="row g-2">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="create_request">
+          <input type="hidden" name="citizen_id" value="{{ selected_citizen.id }}">
+          <input type="hidden" name="year" value="{{ selected_year }}">
+          <div class="col-md-4">
+            <label class="form-label small">Data inceput</label>
+            <input type="date" class="form-control form-control-sm" name="start_date" id="start-date" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small">Data sfarsit</label>
+            <input type="date" class="form-control form-control-sm" name="end_date" id="end-date" required>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small">Zile</label>
+            <input type="number" class="form-control form-control-sm" id="days-display" readonly>
+          </div>
+          <div class="col-12">
+            <label class="form-label small">Comentarii (optional)</label>
+            <textarea class="form-control form-control-sm" rows="2" name="note"></textarea>
+          </div>
+          <div class="col-12 d-flex justify-content-end">
+            <button type="submit" class="btn btn-success btn-sm">Trimite spre aprobare</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5 class="h6 mb-0">Cereri recente</h5>
+          <small class="text-muted">Status colorat: in asteptare (galben), aprobat (verde), respins (rosu)</small>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Perioada</th>
+                <th>Zile</th>
+                <th>Status</th>
+                <th>Nota</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in requests %}
+                <tr>
+                  <td>{{ r.start_date }} - {{ r.end_date }}</td>
+                  <td>{{ r.days_requested }}</td>
+                  <td>
+                    {% if r.status == "pending" %}
+                      <span class="badge bg-warning text-dark">In asteptare</span>
+                    {% elif r.status == "approved" and r.start_date <= today and today <= r.end_date %}
+                      <span class="badge bg-primary">In executie</span>
+                    {% elif r.status == "approved" %}
+                      <span class="badge bg-success">Aprobat</span>
+                    {% else %}
+                      <span class="badge bg-danger">Respins</span>
+                    {% endif %}
+                  </td>
+                  <td class="small">{{ r.note|default:"-" }}</td>
+                  <td class="text-end">
+                    {% if r.status == "pending" %}
+                      <form method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="approve">
+                        <input type="hidden" name="citizen_id" value="{{ selected_citizen.id }}">
+                        <input type="hidden" name="year" value="{{ selected_year }}">
+                        <input type="hidden" name="request_id" value="{{ r.id }}">
+                        <button class="btn btn-success btn-sm">Aproba</button>
+                      </form>
+                      <form method="post" class="d-inline ms-1">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="reject">
+                        <input type="hidden" name="citizen_id" value="{{ selected_citizen.id }}">
+                        <input type="hidden" name="year" value="{{ selected_year }}">
+                        <input type="hidden" name="request_id" value="{{ r.id }}">
+                        <input type="text" name="note" class="form-control form-control-sm d-inline-block" style="width:140px;" placeholder="Motiv respingere">
+                        <button class="btn btn-outline-danger btn-sm mt-1">Respinge</button>
+                      </form>
+                    {% elif r.status == "rejected" and "Anulat de utilizator" in r.note|default:"" %}
+                      <form method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="delete_request">
+                        <input type="hidden" name="citizen_id" value="{{ selected_citizen.id }}">
+                        <input type="hidden" name="year" value="{{ selected_year }}">
+                        <input type="hidden" name="request_id" value="{{ r.id }}">
+                        <button class="btn btn-outline-danger btn-sm">Sterge</button>
+                      </form>
+                    {% elif request.user.is_superuser %}
+                      <form method="post" class="d-inline" onsubmit="return confirm('Stergi cererea?');">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="delete_request">
+                        <input type="hidden" name="citizen_id" value="{{ selected_citizen.id }}">
+                        <input type="hidden" name="year" value="{{ selected_year }}">
+                        <input type="hidden" name="request_id" value="{{ r.id }}">
+                        <button class="btn btn-outline-danger btn-sm">Sterge</button>
+                      </form>
+                    {% else %}
+                      <span class="text-muted small">-</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="5" class="text-muted text-center">Nicio cerere.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ leaves_dates|json_script:"leaves-data" }}
+{{ holiday_list|json_script:"holidays-data" }}
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const start = document.getElementById("start-date");
+    const end = document.getElementById("end-date");
+    const daysDisplay = document.getElementById("days-display");
+    const available = parseFloat(document.getElementById("available-days").innerText || "0");
+    const adminCalBody = document.getElementById("admin-cal-body");
+    const adminMonthLabel = document.getElementById("admin-month-label");
+    const adminPrev = document.getElementById("admin-prev-month");
+    const adminNext = document.getElementById("admin-next-month");
+    const leaves = JSON.parse(document.getElementById("leaves-data").textContent || "[]");
+    const holidays = JSON.parse(document.getElementById("holidays-data").textContent || "[]");
+
+    function fmt(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+    function isHoliday(iso) { return holidays.some(h => h.date === iso); }
+    function renderAdminCalendar() {
+      const current = new Date(adminMonthLabel.dataset.current || new Date());
+      current.setDate(1);
+      adminMonthLabel.dataset.current = current.toISOString();
+      const y = current.getFullYear();
+      const m = current.getMonth();
+      const first = new Date(y, m, 1);
+      const last = new Date(y, m + 1, 0);
+      const startOffset = (first.getDay() + 6) % 7;
+      adminMonthLabel.textContent = first.toLocaleString("ro-RO", { month: "long", year: "numeric" });
+      let cells = [];
+      for (let i = 0; i < startOffset; i++) cells.push(null);
+      for (let d = 1; d <= last.getDate(); d++) {
+        const cur = new Date(y, m, d);
+        const iso = fmt(cur);
+        const weekend = cur.getDay() === 0 || cur.getDay() === 6;
+        const leave = leaves.find(l => l.date === iso);
+        let bg = "";
+        if (isHoliday(iso) || (leave && weekend)) bg = "background:#e6d7ff;";
+        else if (leave) {
+          if (leave.status === "approved") bg = "background:#d1f2d1;";
+          else if (leave.status === "pending") bg = "background:#ffe9a3;";
+          else bg = "background:#f8cccc;";
+        } else if (weekend) {
+          bg = "background:#f5f5f5;";
+        }
+        cells.push({ d, iso, bg });
+      }
+      while (cells.length % 7 !== 0) cells.push(null);
+      let html = "";
+      for (let i = 0; i < cells.length; i += 7) {
+        html += "<tr>";
+        for (let j = 0; j < 7; j++) {
+          const cell = cells[i + j];
+          if (!cell) {
+            html += '<td class="p-2" style="height:52px;"></td>';
+          } else {
+            html += `<td class="p-1 text-center" style="height:52px;"><div class="border rounded py-2" style="${cell.bg}">${cell.d}</div></td>`;
+          }
+        }
+        html += "</tr>";
+      }
+      adminCalBody.innerHTML = html;
+    }
+
+    function recalc() {
+      if (!start.value || !end.value) return;
+      const s = new Date(start.value);
+      const e = new Date(end.value);
+      if (e < s) { daysDisplay.value = ""; return; }
+      const diff = Math.round((e - s) / (1000*60*60*24)) + 1;
+      daysDisplay.value = diff;
+      if (diff > available) {
+        daysDisplay.classList.add("is-invalid");
+      } else {
+        daysDisplay.classList.remove("is-invalid");
+      }
+    }
+    start.addEventListener("change", recalc);
+    end.addEventListener("change", recalc);
+    if (adminPrev && adminNext) {
+      adminPrev.addEventListener("click", (e) => {
+        e.preventDefault();
+        const cur = new Date(adminMonthLabel.dataset.current || new Date());
+        cur.setMonth(cur.getMonth() - 1);
+        adminMonthLabel.dataset.current = cur.toISOString();
+        renderAdminCalendar();
+      });
+      adminNext.addEventListener("click", (e) => {
+        e.preventDefault();
+        const cur = new Date(adminMonthLabel.dataset.current || new Date());
+        cur.setMonth(cur.getMonth() + 1);
+        adminMonthLabel.dataset.current = cur.toISOString();
+        renderAdminCalendar();
+      });
+      adminMonthLabel.dataset.current = new Date().toISOString();
+      renderAdminCalendar();
+    }
+  });
+</script>
+{% endblock %}

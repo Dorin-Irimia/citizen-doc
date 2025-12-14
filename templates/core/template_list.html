@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Template-uri{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3">Template-uri</h1>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="{% url 'export_templates' %}">Export CSV</a>
+    <a class="btn btn-outline-secondary" href="{% url 'import_templates' %}">Import CSV</a>
+    <a class="btn btn-primary" href="{% url 'template_create' %}">Template nou</a>
+  </div>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>Nume</th>
+        <th>Tip template</th>
+        <th>Tip document</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in templates %}
+      <tr>
+        <td>{{ t.name }}</td>
+        <td>{{ t.get_template_type_display }}</td>
+        <td>{{ t.get_output_type_display }}</td>
+        <td class="text-end">
+          <a href="{% url 'template_edit' t.slug %}" class="btn btn-sm btn-secondary">Editare</a>
+          <a href="{% url 'template_delete' t.slug %}" class="btn btn-sm btn-outline-danger">Stergere</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4">Niciun template.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

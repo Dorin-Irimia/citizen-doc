@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Administrare primarii{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Primarii & resurse</h1>
+  <div class="d-flex align-items-center gap-2">
+    <div class="text-muted small">
+      Total cetateni: {{ total_citizens }} | Total template-uri: {{ total_templates }}
+    </div>
+    <a class="btn btn-sm btn-outline-primary" href="{% url 'municipality_create' %}">Adauga primarie</a>
+    <a class="btn btn-sm btn-outline-primary" href="{% url 'admin_invite_create' %}">Invita admin</a>
+  </div>
+</div>
+
+{% for m in municipalities %}
+  <div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <div>
+        <strong>{{ m.name }}</strong>
+        <span class="text-muted small ms-2">Cetateni: {{ m.citizens.count }} | Template-uri: {{ m.templates.count }}</span>
+      </div>
+    </div>
+    <div class="card-body row">
+      <div class="col-md-6">
+        <h6 class="text-uppercase text-muted">Cetateni</h6>
+        {% if m.citizens.all %}
+          <ul class="list-group list-group-flush">
+            {% for c in m.citizens.all %}
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span>{{ c.full_name }} ({{ c.identifier }})</span>
+                <a class="btn btn-sm btn-outline-primary" href="{% url 'citizen_edit' c.pk %}">Editeaza</a>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted mb-0">Niciun cetatean.</p>
+        {% endif %}
+      </div>
+      <div class="col-md-6">
+        <h6 class="text-uppercase text-muted">Template-uri</h6>
+        {% if m.templates.all %}
+          <ul class="list-group list-group-flush">
+            {% for t in m.templates.all %}
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span>{{ t.name }} ({{ t.get_output_type_display }})</span>
+                <a class="btn btn-sm btn-outline-primary" href="{% url 'template_edit' t.slug %}">Editeaza</a>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted mb-0">Niciun template.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% empty %}
+  <p class="text-muted">Nu exista primarii inregistrate.</p>
+{% endfor %}
+{% endblock %}

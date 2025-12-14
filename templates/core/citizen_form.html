@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}Cetatean{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">
+  {% if citizen %}{% if self_edit %}Profil{% else %}Editeaza cetatean{% endif %}{% else %}Cetatean nou{% endif %}
+</h1>
+
+<form method="post" id="citizen-form">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+
+  <div class="row g-3">
+    <div class="col-12"><h6 class="text-muted text-uppercase">Date de baza</h6></div>
+    {% for field in form %}
+      {% with ro=field.field.widget.attrs.readonly %}
+      <div class="col-md-6">
+        <label class="form-label">{{ field.label }}</label>
+        {% if ro %}
+          <div class="form-control bg-light text-muted">
+            {{ field.value|default:field.initial|default_if_none:"" }}
+          </div>
+          <div class="form-text text-muted">Nu se poate edita</div>
+        {% else %}
+          {% if field.name == "email_recuperare" and self_edit %}
+            <div class="input-group">
+              {{ field }}
+              <button class="btn btn-outline-primary" type="button" id="send-email-code">Verifica</button>
+            </div>
+            <div class="form-text">Apasa Verifica pentru a trimite un cod pe email. Salvarea este permisa doar dupa verificare.</div>
+          {% else %}
+            {{ field }}
+          {% endif %}
+          {% if field.help_text %}
+            <div class="form-text">{{ field.help_text }}</div>
+          {% endif %}
+          {{ field.errors }}
+        {% endif %}
+      </div>
+      {% endwith %}
+    {% endfor %}
+  </div>
+
+  <div class="d-flex align-items-center justify-content-between mt-4 mb-2">
+    <h5 class="mb-0">Campuri suplimentare</h5>
+    <button class="btn btn-sm btn-outline-primary" type="button" id="add-extra">+ field</button>
+  </div>
+
+  {{ formset.management_form }}
+  <div id="extra-fields">
+    {% for f in formset.forms %}
+      <div class="card mb-2 extra-item">
+        <div class="card-body">
+          <div class="row g-2">
+            <div class="col-md-5">
+              <label class="form-label">Nume camp</label>
+              {{ f.field_name }}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Valoare</label>
+              {{ f.field_value }}
+            </div>
+            <div class="col-md-1 d-flex align-items-end">
+              <button type="button" class="btn btn-outline-danger btn-sm remove-extra" data-delete-name="{{ f.prefix }}-DELETE">x</button>
+              <input type="hidden" name="{{ f.prefix }}-DELETE" value="">
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div id="extra-empty" class="d-none">
+    <div class="card mb-2 extra-item">
+      <div class="card-body">
+        <div class="row g-2">
+          <div class="col-md-5">
+            <label class="form-label">Nume camp</label>
+            <input type="text" name="extra-__prefix__-field_name" class="form-control">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Valoare</label>
+            <input type="text" name="extra-__prefix__-field_value" class="form-control">
+          </div>
+          <div class="col-md-1 d-flex align-items-end">
+            <button type="button" class="btn btn-outline-danger btn-sm remove-extra" data-delete-name="extra-__prefix__-DELETE">x</button>
+            <input type="hidden" name="extra-__prefix__-DELETE" value="">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-4 d-flex gap-2">
+    <button class="btn btn-primary">Salveaza</button>
+    {% if self_edit %}
+      <a class="btn btn-secondary" href="{% url 'citizen_dashboard' %}">Renunta</a>
+    {% else %}
+      <a class="btn btn-secondary" href="{% url 'citizen_list' %}">Renunta</a>
+    {% endif %}
+  </div>
+</form>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const verifyBtn = document.getElementById("send-email-code");
+  if (verifyBtn) {
+    verifyBtn.addEventListener("click", () => {
+      const emailInput = document.getElementById("id_email_recuperare");
+      if (!emailInput || !emailInput.value) {
+        alert("Completeaza emailul de recuperare inainte de verificare.");
+        return;
+      }
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = "{% url 'citizen_send_email_code' %}";
+      form.style.display = "none";
+      const csrf = document.querySelector('[name=csrfmiddlewaretoken]').cloneNode();
+      const emailField = document.createElement("input");
+      emailField.type = "hidden";
+      emailField.name = "email_recuperare";
+      emailField.value = emailInput.value;
+      form.appendChild(csrf);
+      form.appendChild(emailField);
+      document.body.appendChild(form);
+      form.submit();
+    });
+  }
+
+  const container = document.getElementById("extra-fields");
+  const totalForms = document.getElementById("id_extra-TOTAL_FORMS");
+  const emptyTemplate = document.getElementById("extra-empty").innerHTML;
+
+  function bindRemoveButtons() {
+    container.querySelectorAll(".remove-extra").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const card = btn.closest(".extra-item");
+        const deleteFieldName = btn.dataset.deleteName;
+        const deleteInput = card.querySelector(`input[name="${deleteFieldName}"]`);
+        if (deleteInput) {
+          deleteInput.value = "on";
+        }
+        // evita blocarea submit-ului pe camp required ascuns
+        card.querySelectorAll("input").forEach(inp => {
+          inp.required = false;
+          inp.disabled = true;
+        });
+        card.style.display = "none";
+      });
+    });
+  }
+
+  document.getElementById("add-extra").addEventListener("click", () => {
+    const index = parseInt(totalForms.value, 10);
+    const html = emptyTemplate.replace(/__prefix__/g, index);
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = html;
+    const node = wrapper.firstElementChild;
+    node.querySelectorAll("input").forEach(inp => {
+      inp.required = false; // campurile extra sunt optionale
+    });
+    container.appendChild(node);
+    totalForms.value = index + 1;
+    bindRemoveButtons();
+  });
+
+  bindRemoveButtons();
+  // asigura optionalitatea campurilor deja randate (initiale)
+  container.querySelectorAll(".extra-item input").forEach(inp => {
+    inp.required = false;
+  });
+});
+</script>
+{% endblock %}

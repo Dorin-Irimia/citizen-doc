@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Administratori primarii{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Administratori primarii</h1>
+  <div class="text-muted small">Total administratori: {{ total_admins }}</div>
+</div>
+
+{% if summary %}
+  <div class="row mb-3">
+    {% for m in summary %}
+      <div class="col-md-4 mb-2">
+        <div class="card card-body py-2">
+          <strong>{{ m.name }}</strong>
+          <span class="text-muted small"> | Admini: {{ m.admin_count }}</span>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<div class="table-responsive">
+  <table class="table table-striped align-middle">
+    <thead>
+      <tr>
+        <th>Email (user)</th>
+        <th>Primarie</th>
+        <th>Status</th>
+        <th class="text-end">Actiuni</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for adm in admins %}
+      <tr>
+        <td>{{ adm.user.username }}</td>
+        <td>{{ adm.municipality.name }}</td>
+        <td>
+          {% if adm.user.is_active %}
+            <span class="badge bg-success">Activ</span>
+          {% else %}
+            <span class="badge bg-secondary">Inactiv</span>
+          {% endif %}
+        </td>
+        <td class="text-end">
+          <form method="post" class="d-inline">
+            {% csrf_token %}
+            <input type="hidden" name="admin_id" value="{{ adm.id }}">
+            {% if adm.user.is_active %}
+              <input type="hidden" name="action" value="deactivate">
+              <button class="btn btn-sm btn-outline-warning" type="submit">Dezactiveaza</button>
+            {% else %}
+              <input type="hidden" name="action" value="activate">
+              <button class="btn btn-sm btn-outline-success" type="submit">Activeaza</button>
+            {% endif %}
+          </form>
+          <form method="post" class="d-inline ms-1" onsubmit="return confirm('Sigur stergi acest admin?');">
+            {% csrf_token %}
+            <input type="hidden" name="admin_id" value="{{ adm.id }}">
+            <input type="hidden" name="action" value="delete">
+            <button class="btn btn-sm btn-outline-danger" type="submit">Sterge</button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="4" class="text-muted">Nu exista administratori inregistrati.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

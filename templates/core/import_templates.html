@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Import template-uri{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Import template-uri (CSV)</h1>
+<form method="post" enctype="multipart/form-data" class="card card-body shadow-sm">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  <div class="mb-3">
+    <label class="form-label">Fisier CSV</label>
+    {{ form.file }}
+    {% for e in form.file.errors %}<div class="text-danger">{{ e }}</div>{% endfor %}
+    <div class="form-text">Format: UTF-8, coloane: name, description, output_type, body_html, dynamic_fields (JSON list), slug(optional)</div>
+  </div>
+  {% if form.municipality %}
+    <div class="mb-3">
+      <label class="form-label">Primarie</label>
+      {{ form.municipality }}
+    </div>
+  {% endif %}
+  <button class="btn btn-primary">Importa</button>
+</form>
+{% endblock %}

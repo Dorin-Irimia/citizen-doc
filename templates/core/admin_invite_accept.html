@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Finalizeaza cont{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5">
+    <h1 class="h5 mb-3 text-center">Seteaza parola pentru {{ municipality }}</h1>
+    <form method="post" class="card card-body shadow-sm">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      <div class="mb-3">
+        <label class="form-label">Parola</label>
+        {{ form.password1 }}
+        {{ form.password1.errors }}
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Confirmare parola</label>
+        {{ form.password2 }}
+        {{ form.password2.errors }}
+      </div>
+      <button class="btn btn-primary w-100">Creeaza cont</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+{% block title %}Concedii{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <h1 class="h4 mb-0">Concedii</h1>
+    <div class="text-muted small">Solicita concediu si vezi calendarul (weekend + zile legale excluse)</div>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <form method="get" class="d-flex align-items-center gap-2">
+      <label class="text-muted small mb-0">An</label>
+      <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+        {% for y in year_options %}
+          <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    <div class="badge bg-info-subtle text-info">Disponibile: {{ stats.available }} / {{ stats.allowance }} zile</div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <h5 class="h6 card-title">Statistici {{ stats.year }}</h5>
+        <ul class="list-unstyled mb-3 small">
+          <li>Alocate: <strong>{{ stats.allowance }}</strong> | Acumulate: <strong>{{ stats.accrued }}</strong></li>
+          <li>Folosite: <strong>{{ stats.used }}</strong> | Disponibile: <strong>{{ stats.available }}</strong></li>
+        </ul>
+        <div class="border rounded p-2 bg-light">
+          <div id="cal-legend" class="d-flex flex-wrap gap-2 small">
+            <span class="badge bg-success">Aprobate</span>
+            <span class="badge bg-warning text-dark">In asteptare</span>
+            <span class="badge bg-danger">Respins</span>
+            <span class="badge bg-secondary">Zile legale</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="h6 card-title">Cerere noua</h5>
+        <form method="post" class="row g-2">
+          {% csrf_token %}
+          <input type="hidden" name="year" value="{{ selected_year }}">
+          <div class="col-6">
+            <label class="form-label small">Data inceput</label>
+            <input type="date" class="form-control form-control-sm" name="start_date" id="start-date" required>
+          </div>
+          <div class="col-6">
+            <label class="form-label small">Data sfarsit</label>
+            <input type="date" class="form-control form-control-sm" name="end_date" id="end-date" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label small">Comentarii (optional)</label>
+            <textarea class="form-control form-control-sm" rows="2" name="note"></textarea>
+          </div>
+          <div class="col-12 d-flex align-items-center justify-content-between">
+            <div class="small text-muted">Zile lucratoare (fara weekend / libere legale): <strong id="days-display">-</strong></div>
+            <button type="submit" class="btn btn-success btn-sm">Trimite spre aprobare</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5 class="h6 mb-0">Calendar</h5>
+          <div class="d-flex gap-2 align-items-center">
+            <button class="btn btn-outline-secondary btn-sm" id="prev-month">&#8592;</button>
+            <div id="month-label" class="fw-bold small"></div>
+            <button class="btn btn-outline-secondary btn-sm" id="next-month">&#8594;</button>
+          </div>
+        </div>
+        <div id="calendar" class="table-responsive">
+          <table class="table table-bordered align-middle mb-0" style="min-width: 520px;">
+            <thead class="table-light text-center">
+              <tr>
+                <th class="p-1">L</th><th class="p-1">M</th><th class="p-1">M</th><th class="p-1">J</th><th class="p-1">V</th><th class="p-1">S</th><th class="p-1">D</th>
+              </tr>
+            </thead>
+            <tbody id="cal-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="h6 mb-2">Cereri recente</h5>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Perioada</th>
+                <th>Zile</th>
+                <th>Status</th>
+                <th>Nota</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in requests %}
+                <tr>
+                  <td>{{ r.start_date }} - {{ r.end_date }}</td>
+                  <td>{{ r.days_requested }}</td>
+                  <td>
+                    {% if r.status == "pending" %}
+                      <span class="badge bg-warning text-dark">In asteptare</span>
+                    {% elif r.status == "approved" and r.start_date <= today and today <= r.end_date %}
+                      <span class="badge bg-primary">In executie</span>
+                    {% elif r.status == "approved" %}
+                      <span class="badge bg-success">Aprobat</span>
+                    {% else %}
+                      <span class="badge bg-danger">Respins</span>
+                    {% endif %}
+                  </td>
+                  <td class="small">{{ r.note|default:"-" }}</td>
+                  <td class="text-end">
+                    {% if r.status == "pending" or r.status == "approved" and today < r.start_date %}
+                      <form method="post" class="d-inline" onsubmit="return confirm('Sigur vrei sa anulezi? {% if r.status == 'approved' %}A fost aprobat - esti sigur?{% endif %}');">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="cancel_request">
+                        <input type="hidden" name="request_id" value="{{ r.id }}">
+                        <input type="hidden" name="year" value="{{ selected_year }}">
+                        <button class="btn btn-outline-danger btn-sm">Anuleaza</button>
+                      </form>
+                    {% elif r.status == "rejected" %}
+                      <form method="post" class="d-inline" onsubmit="return confirm('Stergi cererea respinsa?');">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="delete_request">
+                        <input type="hidden" name="request_id" value="{{ r.id }}">
+                        <input type="hidden" name="year" value="{{ selected_year }}">
+                        <button class="btn btn-outline-danger btn-sm">Sterge</button>
+                      </form>
+                    {% else %}
+                      <span class="text-muted small">-</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="5" class="text-muted text-center">Nicio cerere.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <hr>
+          <h6 class="h6">Editeaza cerere</h6>
+          <form method="post" class="row g-2">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="edit_request">
+            <input type="hidden" name="year" value="{{ selected_year }}">
+            <div class="col-12">
+              <label class="form-label small">Selecteaza cererea</label>
+              <select name="request_id" class="form-select form-select-sm" required>
+                {% for r in requests %}
+                  <option value="{{ r.id }}">{{ r.start_date }} - {{ r.end_date }} ({{ r.get_status_display }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">Data inceput</label>
+              <input type="date" class="form-control form-control-sm" name="start_date" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">Data sfarsit</label>
+              <input type="date" class="form-control form-control-sm" name="end_date" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label small">Comentarii</label>
+              <textarea class="form-control form-control-sm" rows="2" name="note"></textarea>
+            </div>
+            <div class="col-12 d-flex justify-content-end">
+              <button class="btn btn-secondary btn-sm">Salveaza si retrimite</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ leaves_dates|json_script:"leaves-data" }}
+{{ holiday_list|json_script:"holidays-data" }}
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const start = document.getElementById("start-date");
+    const end = document.getElementById("end-date");
+    const daysDisplay = document.getElementById("days-display");
+    const holidays = JSON.parse(document.getElementById("holidays-data").textContent || "[]");
+    const leaves = JSON.parse(document.getElementById("leaves-data").textContent || "[]");
+
+    function fmt(d) {
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    }
+    function isHoliday(dateStr) {
+      return holidays.some(h => h.date === dateStr);
+    }
+    function isWeekend(dateObj) {
+      const d = dateObj.getDay();
+      return d === 0 || d === 6;
+    }
+    function recalc() {
+      if (!start.value || !end.value) return;
+      const s = new Date(start.value);
+      const e = new Date(end.value);
+      if (e < s) { daysDisplay.textContent = "-"; return; }
+      let days = 0;
+      for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+        const iso = fmt(d);
+        if (!isWeekend(d) && !isHoliday(iso)) days += 1;
+      }
+      daysDisplay.textContent = days;
+    }
+    start.addEventListener("change", recalc);
+    end.addEventListener("change", recalc);
+
+    // calendar rendering
+    const calBody = document.getElementById("cal-body");
+    const monthLabel = document.getElementById("month-label");
+    const btnPrev = document.getElementById("prev-month");
+    const btnNext = document.getElementById("next-month");
+    let current = new Date();
+    current.setDate(1);
+    let selStart = "";
+    let selEnd = "";
+
+    function isBetween(iso, a, b) {
+      if (!a || !b) return false;
+      return iso >= a && iso <= b;
+    }
+
+    function applySelection() {
+      document.querySelectorAll(".cal-cell").forEach((cell) => {
+        const iso = cell.dataset.date;
+        const base = cell.dataset.basebg || "";
+        cell.style.background = base ? base.replace("background:", "").replace(";", "") : "";
+        if (selStart && !selEnd && iso === selStart) {
+          const d = new Date(iso);
+          const weekend = isWeekend(d);
+          cell.style.background = weekend || isHoliday(iso) ? "#e6d7ff" : "#cde8ff";
+        }
+        if (selStart && selEnd && isBetween(iso, selStart, selEnd)) {
+          const d = new Date(iso);
+          const weekend = isWeekend(d);
+          cell.style.background = weekend || isHoliday(iso) ? "#e6d7ff" : "#cde8ff";
+        }
+      });
+    }
+
+    function renderCalendar() {
+      const y = current.getFullYear();
+      const m = current.getMonth();
+      const first = new Date(y, m, 1);
+      const last = new Date(y, m + 1, 0);
+      monthLabel.textContent = first.toLocaleString("ro-RO", { month: "long", year: "numeric" });
+
+      // luni=0 ... duminica=6
+      // In JS, getDay(): 0=duminica ... 6=sambata; vrem luni=0
+      const startOffset = (first.getDay() + 6) % 7;
+      let cells = [];
+      for (let i = 0; i < startOffset; i++) cells.push(null);
+      for (let d = 1; d <= last.getDate(); d++) {
+        const cur = new Date(y, m, d);
+        const iso = fmt(cur);
+        const weekend = cur.getDay() === 0 || cur.getDay() === 6;
+        const hol = isHoliday(iso);
+        const leave = leaves.find(l => l.date === iso);
+        let bg = "";
+        if (hol || (leave && weekend)) {
+          bg = "background:#e6d7ff;";
+        } else if (leave) {
+          if (leave.status === "approved") bg = "background:#d1f2d1;";
+          else if (leave.status === "pending") bg = "background:#ffe9a3;";
+          else bg = "background:#f8cccc;";
+        }
+        if (weekend && !leave && !hol) bg = "background:#f5f5f5;";
+        cells.push({ d, bg, iso });
+      }
+      while (cells.length % 7 !== 0) cells.push(null);
+      let html = "";
+      for (let i = 0; i < cells.length; i += 7) {
+        html += "<tr>";
+        for (let j = 0; j < 7; j++) {
+          const cell = cells[i + j];
+          if (!cell) {
+            html += '<td class="p-2" style="height:52px;"></td>';
+          } else {
+            html += `<td class="p-1 text-center" style="height:52px;">
+              <div class="border rounded py-2 cal-cell" data-date="${cell.iso}" data-basebg="${cell.bg}" style="${cell.bg}">${cell.d}</div>
+            </td>`;
+          }
+        }
+        html += "</tr>";
+      }
+      calBody.innerHTML = html;
+      document.querySelectorAll(".cal-cell").forEach((cell) => {
+        cell.addEventListener("click", () => {
+          const iso = cell.dataset.date;
+          if (!selStart || (selStart && selEnd)) {
+            selStart = iso;
+            selEnd = "";
+            start.value = iso;
+            end.value = "";
+          } else if (selStart && !selEnd) {
+            selEnd = iso;
+            if (selEnd < selStart) [selStart, selEnd] = [selEnd, selStart];
+            start.value = selStart;
+            end.value = selEnd;
+            recalc();
+          }
+          applySelection();
+        });
+      });
+      applySelection();
+    }
+    btnPrev.addEventListener("click", (e) => { e.preventDefault(); current.setMonth(current.getMonth()-1); renderCalendar(); });
+    btnNext.addEventListener("click", (e) => { e.preventDefault(); current.setMonth(current.getMonth()+1); renderCalendar(); });
+    renderCalendar();
+  });
+</script>
+{% endblock %}

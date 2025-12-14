@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Contul meu - Primarie{% endblock %}
+{% block content %}
+<div class="row mb-4">
+  <div class="col-md-4 mb-3 mb-md-0">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Statistici</h5>
+        <p class="mb-1">Cetateni inscrisi: <strong>{{ citizens_count }}</strong></p>
+        <p class="mb-3">Documente emise: <strong>{{ documents_count }}</strong></p>
+        {% if recent_docs %}
+          <small class="text-muted d-block mb-2">Ultimele documente</small>
+          <ul class="list-unstyled mb-0">
+            {% for doc in recent_docs %}
+              <li class="mb-1">{{ doc.created_at|date:"d/m/Y H:i" }} – {{ doc.template.name }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-8">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Date primarie</h5>
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          {% for field in form %}
+            <div class="mb-3">
+              <label class="form-label">{{ field.label }}</label>
+              {{ field }}
+              {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+              {{ field.errors }}
+            </div>
+          {% endfor %}
+          <button class="btn btn-primary">Salveaza</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

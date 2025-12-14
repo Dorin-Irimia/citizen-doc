@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Test email{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <h1 class="h5 mb-3 text-center">Trimite email de test</h1>
+    <form method="post" class="card card-body shadow-sm">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      <div class="mb-3">
+        <label class="form-label">Destinatar</label>
+        {{ form.to_email }}
+        {{ form.to_email.errors }}
+      </div>
+      <button class="btn btn-primary w-100">Trimite</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

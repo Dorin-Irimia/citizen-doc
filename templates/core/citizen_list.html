@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Cetateni{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h1 class="h3 mb-0">Cetateni</h1>
+  <div class="d-flex gap-2 flex-wrap">
+    <a class="btn btn-outline-secondary" href="{% url 'export_citizens' %}">Export CSV</a>
+    <a class="btn btn-outline-secondary" href="{% url 'import_citizens' %}">Import CSV</a>
+    <a class="btn btn-primary" href="{% url 'citizen_create' %}">Adauga cetatean</a>
+  </div>
+</div>
+
+<form class="card card-body shadow-sm mb-3" method="get">
+  <div class="row g-2 align-items-end">
+    <div class="col-md-4">
+      <label class="form-label">Cautare (nume, CNP, identificator)</label>
+      <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Ex: 5010... sau nume">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Status</label>
+      <select name="status" class="form-select">
+        <option value="">Toate</option>
+        {% for val,label in status_choices %}
+          <option value="{{ val }}" {% if status_f == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Sorteaza</label>
+      <select name="sort" class="form-select">
+        <option value="" {% if not sort %}selected{% endif %}>Alfabetic</option>
+        <option value="messages" {% if sort == "messages" %}selected{% endif %}>Mesaje noi (desc)</option>
+      </select>
+    </div>
+    <div class="col-md-2 d-grid">
+      <button class="btn btn-outline-primary">Filtreaza</button>
+    </div>
+  </div>
+</form>
+
+<div class="table-responsive">
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>Nume complet</th>
+        <th>Identificator</th>
+        <th>CNP (login)</th>
+        <th>Status</th>
+        <th>Chat</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in citizens %}
+      <tr>
+        <td>{{ c.full_name }}</td>
+        <td>{{ c.identifier }}</td>
+        <td>{{ c.cnp }}</td>
+        <td>
+          <form method="post" class="d-flex align-items-center gap-1">
+            {% csrf_token %}
+            <input type="hidden" name="citizen_id" value="{{ c.id }}">
+            <select name="profile_status" class="form-select form-select-sm">
+              {% for val,label in status_choices %}
+                <option value="{{ val }}" {% if c.profile_status == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            <button class="btn btn-sm btn-outline-primary">Seteaza</button>
+          </form>
+        </td>
+        <td>
+          <a class="btn btn-sm btn-outline-secondary position-relative" href="{% url 'admin_chat' c.id %}">
+            Chat
+          {% if c.msg_from_citizen %}
+            <span class="badge bg-danger position-absolute top-0 start-100 translate-middle">
+              +{{ c.msg_from_citizen }}
+            </span>
+          {% endif %}
+          </a>
+        </td>
+        <td class="text-end">
+          <a href="{% url 'citizen_edit' c.pk %}" class="btn btn-sm btn-secondary">Editare</a>
+          <a href="{% url 'citizen_delete' c.pk %}" class="btn btn-sm btn-outline-danger">Stergere</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4">Niciun cetatean.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

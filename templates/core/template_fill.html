@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Completeaza campuri{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Completeaza campurile dinamice</h1>
+<form method="post" class="card card-body shadow-sm">
+  {% csrf_token %}
+  <p class="text-muted small mb-3">Lasa gol pentru a se completa automat cu underline (____).</p>
+  <input type="hidden" name="citizen_id" value="{{ citizen.id }}">
+  <input type="hidden" name="template_slug" value="{{ template.slug }}">
+  {% if municipality_id %}
+    <input type="hidden" name="municipality_id" value="{{ municipality_id }}">
+  {% endif %}
+  {% for field in dynamic_fields %}
+    <div class="mb-3">
+      <label class="form-label">{{ field.label }} ({{ field.key }})</label>
+      {% if field.type == "select" %}
+        {% with opts=field.options|default:""|split:"," %}
+          <select name="{{ field.key }}" class="form-select">
+            <option value="">-- alege --</option>
+            {% for o in opts %}
+              <option value="{{ o|trim }}">{{ o|trim }}</option>
+            {% endfor %}
+          </select>
+        {% endwith %}
+      {% elif field.type == "datetime" %}
+        <input type="datetime-local" name="{{ field.key }}" class="form-control" value="{{ field.initial|default:'' }}">
+      {% elif field.type == "date" %}
+        <input type="date" name="{{ field.key }}" class="form-control" value="{{ field.initial|default:'' }}">
+      {% elif field.type == "time" %}
+        <input type="time" name="{{ field.key }}" class="form-control" value="{{ field.initial|default:'' }}">
+      {% elif field.type == "year" %}
+        <input type="number" min="1900" max="2100" step="1" name="{{ field.key }}" class="form-control" value="{{ field.initial|default:'' }}">
+      {% elif field.type == "month" %}
+        <input type="number" min="1" max="12" step="1" name="{{ field.key }}" class="form-control" value="{{ field.initial|default:'' }}">
+      {% elif field.type == "day" %}
+        <input type="number" min="1" max="31" step="1" name="{{ field.key }}" class="form-control" value="{{ field.initial|default:'' }}">
+      {% else %}
+        <input type="text" name="{{ field.key }}" class="form-control" value="{{ field.initial|default:'' }}">
+      {% endif %}
+      <div class="form-text">Implicit underline: {{ field.length }}</div>
+    </div>
+  {% empty %}
+    <p class="text-muted">Nu exista campuri dinamice. Continua pentru generare.</p>
+  {% endfor %}
+  <div class="d-flex gap-2">
+    <button class="btn btn-primary">Genereaza</button>
+    <a class="btn btn-secondary" href="{% url 'generate_select' %}">Inapoi</a>
+  </div>
+</form>
+{% endblock %}

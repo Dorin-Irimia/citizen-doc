@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Lucrari{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3">Lucrari</h1>
+  <div>
+    <form method="get" class="d-flex gap-2">
+      <select class="form-select form-select-sm" name="status" onchange="this.form.submit()">
+        <option value="">Toate statusurile</option>
+        {% for value,label in status_choices %}
+          <option value="{{ value }}"{% if status_f == value %} selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn-sm btn-outline-secondary" type="submit">Filtreaza</button>
+    </form>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead>
+          <tr>
+            <th>Template</th>
+            <th>Cetatean</th>
+            <th>Primarie</th>
+            <th>Status</th>
+            <th>Creat la</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+            <tr>
+              <td>{{ item.template.name }}</td>
+              <td>{{ item.citizen.full_name }}</td>
+              <td>{% if item.municipality %}{{ item.municipality.name }}{% else %}Nesetat{% endif %}</td>
+              <td><span class="badge bg-secondary">{{ item.get_status_display }}</span></td>
+              <td>{{ item.created_at }}</td>
+              <td class="text-end d-flex gap-2 justify-content-end">
+                {% if item.status == "completed" and item.final_document %}
+                  <a class="btn btn-sm btn-outline-secondary" href="{% url 'document_preview' item.final_document.id %}" target="_blank">Preview</a>
+                {% else %}
+                  <a class="btn btn-sm btn-primary" href="{% url 'work_item_detail' item.id %}">Deschide</a>
+                {% endif %}
+                <form method="post" action="{% url 'work_item_delete' item.id %}">
+                  {% csrf_token %}
+                  <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Stergi lucrarea? Documentele finale raman la cetatean.');">Sterge</button>
+                </form>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6" class="text-muted text-center py-3">Nicio lucrare.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

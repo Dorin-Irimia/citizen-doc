@@ -1,0 +1,406 @@
+{% extends "base.html" %}
+{% block title %}Lucrare{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <div class="text-muted small">Lucrare pentru {{ work.citizen.full_name }}</div>
+    <h1 class="h4 mb-0">{{ work.template.name }}</h1>
+    <div class="small text-muted">Status: <span class="badge bg-secondary">{{ work.get_status_display }}</span></div>
+  </div>
+  <div class="d-flex gap-2">
+    {% if not is_readonly %}
+      <button type="button" class="btn btn-success" onclick="submitWork('finalize')">Finalizeaza</button>
+    {% endif %}
+    {% if work.final_document %}
+      <a class="btn btn-outline-secondary" href="{% url 'document_preview' work.final_document.id %}" target="_blank">Vezi document final</a>
+    {% endif %}
+    <a class="btn btn-secondary" href="{% url 'work_item_list' %}">Inapoi</a>
+  </div>
+</div>
+
+<form method="post" id="work-form" enctype="multipart/form-data">
+  {% csrf_token %}
+  <input type="hidden" name="action" id="action-field" value="save">
+  <input type="hidden" id="signature_top" name="signature_top" value="{{ signature.top|default:'70' }}">
+  <input type="hidden" id="signature_left" name="signature_left" value="{{ signature.left|default:'60' }}">
+  <input type="hidden" id="signature_width" name="signature_width" value="{{ signature.width|default:'25' }}">
+  <input type="hidden" id="signature_height" name="signature_height" value="{{ signature.height|default:'8' }}">
+  <input type="hidden" id="signature_page" name="signature_page" value="{{ signature.page|default:'1' }}">
+
+  <div class="row g-3 align-items-start">
+    <div class="col-lg-4">
+      <div class="card shadow-sm mb-3">
+        <div class="card-body">
+          <h5 class="card-title h6">Campuri dinamice</h5>
+          {% if dyn_fields %}
+            {% for field in dyn_fields %}
+              <div class="mb-3">
+                <label class="form-label mb-1">{{ field.label }} <span class="text-muted">({{ field.key }})</span></label>
+                <input type="text" class="form-control form-control-sm dyn-input" name="{{ field.key }}" value="{{ field.value }}">
+                <div class="form-text">Lungime implicita: {{ field.length }}</div>
+              </div>
+            {% endfor %}
+          {% else %}
+            <p class="text-muted small mb-0">Niciun camp dinamic.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title h6">Semnatura electronica</h5>
+          <div class="mb-2">
+            <label class="form-label mb-1">Text semnatura</label>
+            <input type="text" class="form-control form-control-sm" id="signature_text" name="signature_text" value="{{ signature.text|default:'Semnatura electronica' }}">
+            <div class="form-text">Se aplica ca eticheta peste document.</div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label small mb-1">Top (%)</label>
+              <input type="number" min="0" max="100" step="0.5" class="form-control form-control-sm sig-pos" id="sig-top" value="{{ signature.top|default:'70' }}">
+            </div>
+            <div class="col-6">
+              <label class="form-label small mb-1">Left (%)</label>
+              <input type="number" min="0" max="100" step="0.5" class="form-control form-control-sm sig-pos" id="sig-left" value="{{ signature.left|default:'60' }}">
+            </div>
+            <div class="col-6">
+              <label class="form-label small mb-1">Latime (%)</label>
+              <input type="number" min="5" max="100" step="0.5" class="form-control form-control-sm sig-pos" id="sig-width" value="{{ signature.width|default:'25' }}">
+            </div>
+            <div class="col-6">
+              <label class="form-label small mb-1">Inaltime (mm)</label>
+              <input type="number" min="5" max="80" step="1" class="form-control form-control-sm sig-pos" id="sig-height" value="{{ signature.height|default:'8' }}">
+            </div>
+            <div class="col-6">
+              <label class="form-label small mb-1">Pagina</label>
+              <input type="number" min="1" max="20" step="1" class="form-control form-control-sm sig-pos" id="sig-page" value="{{ signature.page|default:'1' }}">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label mb-1">Imagine semnatura (PNG)</label>
+            <input type="file" class="form-control form-control-sm" name="signature_image" accept="image/png">
+            {% if signature_image_url %}
+              <div class="mt-2">
+                <div class="small text-muted mb-1">Curenta:</div>
+                <img src="{{ signature_image_url }}" alt="Semnatura" style="max-width: 160px; border:1px solid #dee2e6; border-radius:6px; padding:4px; background:#fff;">
+              </div>
+            {% endif %}
+            <div class="form-text">Optional: incarca un PNG (transparent) care va inlocui textul.</div>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetSignature()">Reset pozitie</button>
+            <small class="text-muted">Muta eticheta direct pe preview.</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-8">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="card-title h6 mb-0">Preview document</h5>
+            <small class="text-muted">Trage si redimensioneaza semnatura pe document</small>
+          </div>
+          <div class="preview-wrapper position-relative border rounded bg-white" style="height:78vh; min-height:520px; overflow:auto; background:#f5f7fb;">
+            <iframe id="work-preview" title="Preview" style="width:100%; height:100%; border:0;"></iframe>
+            <div id="signature-box" class="position-absolute">
+              <div class="signature-handle"></div>
+              <span id="signature-label"></span>
+            </div>
+          </div>
+          <div class="d-flex flex-wrap gap-2 align-items-center mt-2">
+            <span id="sig-pos-label" class="text-muted small">Pozitie: -</span>
+            <div class="btn-group btn-group-sm" role="group">
+              <button type="button" class="btn btn-outline-secondary" id="sig-top-left">Stanga sus</button>
+              <button type="button" class="btn btn-outline-secondary" id="sig-center">Centru</button>
+              <button type="button" class="btn btn-outline-secondary" id="sig-bottom-right">Dreapta jos</button>
+              <button type="button" class="btn btn-outline-secondary" id="sig-reset">Reset</button>
+            </div>
+            <span class="text-muted small">Tip: poti misca semnatura cu sagetile (Shift = pasi mai mici).</span>
+          </div>
+          <div class="d-flex gap-2 mt-3">
+            {% if not is_readonly %}
+              <button type="button" class="btn btn-secondary" onclick="submitWork('save')">Salveaza</button>
+            {% else %}
+              <span class="text-muted small">Document finalizat - doar previzualizare</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const previewFrame = document.getElementById("work-preview");
+    const previewHtml = `{{ preview_html|escapejs }}`;
+    const signatureBox = document.getElementById("signature-box");
+    const signatureLabel = document.getElementById("signature-label");
+    const sigPosLabel = document.getElementById("sig-pos-label");
+    const btnTopLeft = document.getElementById("sig-top-left");
+    const btnCenter = document.getElementById("sig-center");
+    const btnBottomRight = document.getElementById("sig-bottom-right");
+    const btnReset = document.getElementById("sig-reset");
+    const wrapper = document.querySelector(".preview-wrapper");
+    const sigTop = document.getElementById("sig-top");
+    const sigLeft = document.getElementById("sig-left");
+    const sigWidth = document.getElementById("sig-width");
+    const sigHeight = document.getElementById("sig-height");
+    const sigPage = document.getElementById("sig-page");
+    const sigText = document.getElementById("signature_text");
+    let signatureBoxImage = "{{ signature_image_url|default:'' }}";
+    const fileInput = document.querySelector('input[name=\"signature_image\"]');
+    const hiddenTop = document.getElementById("signature_top");
+    const hiddenLeft = document.getElementById("signature_left");
+    const hiddenWidth = document.getElementById("signature_width");
+    const hiddenHeight = document.getElementById("signature_height");
+    const hiddenPage = document.getElementById("signature_page");
+    const dynInputs = document.querySelectorAll(".dyn-input");
+    const actionField = document.getElementById("action-field");
+    const previewUrl = "{% url 'generate_preview' %}";
+    const citizenId = "{{ work.citizen.id }}";
+    const templateSlug = "{{ work.template.slug|escapejs }}";
+    const isReadonly = {{ is_readonly|yesno:"true,false" }};
+    let isDragging = false;
+    let isResizing = false;
+    let startX = 0, startY = 0, startW = 0, startH = 0;
+
+    // allow clicks to treaca prin iframe si sa fie capturate pe wrapper
+    previewFrame.style.pointerEvents = "none";
+
+    function loadPreview(html) {
+      previewFrame.srcdoc = `
+        <html>
+          <head>
+            <style>
+              * { box-sizing: border-box; }
+              html, body { margin: 0; padding: 0; height: 100%; background: #f5f7fb; }
+              body { display: flex; justify-content: center; align-items: flex-start; overflow: auto; }
+              .page {
+                background: white;
+                width: 210mm;
+                min-height: 297mm;
+                padding: 12mm;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+                margin: 24px auto;
+                color: #222;
+                font-family: Arial, sans-serif;
+                overflow: hidden;
+              }
+              table { width: 100%; border-collapse: collapse; }
+              img { max-width: 100%; height:auto; }
+            </style>
+          </head>
+          <body>
+            <div class="page">${html}</div>
+          </body>
+        </html>`;
+    }
+
+    // A4 dimensiuni
+    const PAGE_WIDTH_MM = 210;
+    const PAGE_HEIGHT_MM = 297;
+    const MM_TO_PX = 3.78;
+    const PAGE_WIDTH = PAGE_WIDTH_MM * MM_TO_PX;
+    const PAGE_HEIGHT = PAGE_HEIGHT_MM * MM_TO_PX;
+
+    function syncHidden() {
+      hiddenTop.value = sigTop.value;
+      hiddenLeft.value = sigLeft.value;
+      hiddenWidth.value = sigWidth.value;
+      hiddenHeight.value = sigHeight.value;
+      hiddenPage.value = sigPage.value;
+      updateSignatureBox();
+    }
+
+    function updateSignatureBox() {
+      const pageIndex = Math.max(1, parseInt(sigPage.value || "1", 10));
+      const pageOffset = (pageIndex - 1) * PAGE_HEIGHT;
+      const topPx = pageOffset + ((parseFloat(sigTop.value) || 0) / 100) * PAGE_HEIGHT;
+      const leftPx = ((parseFloat(sigLeft.value) || 0) / 100) * PAGE_WIDTH;
+      const widthPx = ((parseFloat(sigWidth.value) || 0) / 100) * PAGE_WIDTH;
+      const heightPx = (parseFloat(sigHeight.value) || 8) * MM_TO_PX;
+      signatureBox.style.top = `${topPx}px`;
+      signatureBox.style.left = `${leftPx}px`;
+      signatureBox.style.width = `${widthPx}px`;
+      signatureBox.style.minHeight = `${heightPx}px`;
+      if (signatureBoxImage) {
+        signatureLabel.innerHTML = `<img src="${signatureBoxImage}" alt="Semnatura" style="max-width:100%; max-height:100%;">`;
+      } else {
+        signatureLabel.textContent = sigText.value || "Semnatura electronica";
+      }
+      if (sigPosLabel) {
+        sigPosLabel.textContent = `Pozitie: Top ${sigTop.value}% | Left ${sigLeft.value}% | Latime ${sigWidth.value}% | Inaltime ${sigHeight.value}mm | Pagina ${sigPage.value}`;
+      }
+    }
+
+    function onDragStart(e) {
+      if (isReadonly) return;
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      e.preventDefault();
+      signatureBox.classList.add("dragging");
+    }
+    function onResizeStart(e) {
+      if (isReadonly) return;
+      isResizing = true;
+      const rect = signatureBox.getBoundingClientRect();
+      startX = e.clientX;
+      startY = e.clientY;
+      startW = rect.width;
+      startH = rect.height;
+      e.preventDefault();
+      e.stopPropagation();
+      signatureBox.classList.add("dragging");
+    }
+
+    function onMove(e) {
+      if (!isDragging && !isResizing) return;
+      const w = wrapper.getBoundingClientRect();
+      if (isDragging) {
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        const rect = signatureBox.getBoundingClientRect();
+        const newLeft = rect.left - w.left + dx;
+        const newTop = rect.top - w.top + dy;
+        sigLeft.value = Math.min(100, Math.max(0, (newLeft / PAGE_WIDTH) * 100)).toFixed(1);
+        sigTop.value = Math.min(100, Math.max(0, (newTop / PAGE_HEIGHT) * 100)).toFixed(1);
+      }
+      if (isResizing) {
+        const dx = e.clientX - startX;
+        const newWidth = Math.max(40, startW + dx);
+        sigWidth.value = Math.min(100, (newWidth / PAGE_WIDTH) * 100).toFixed(1);
+      }
+      syncHidden();
+    }
+
+    function onEnd() {
+      isDragging = false;
+      isResizing = false;
+      signatureBox.classList.remove("dragging");
+    }
+
+    function resetSignature() {
+      sigTop.value = 70;
+      sigLeft.value = 60;
+      sigWidth.value = 25;
+      sigHeight.value = 8;
+      sigPage.value = 1;
+      sigText.value = "Semnatura electronica";
+      syncHidden();
+    }
+    window.resetSignature = resetSignature;
+
+    function submitWork(action) {
+      actionField.value = action;
+      syncHidden();
+      document.getElementById("work-form").submit();
+    }
+    window.submitWork = submitWork;
+
+    function fetchPreview() {
+      const fd = new FormData();
+      fd.append("template_slug", templateSlug);
+      fd.append("citizen_id", citizenId);
+      fd.append("municipality_id", "{{ work.municipality_id }}");
+      document.querySelectorAll(".dyn-input").forEach((inp) => fd.append(inp.name, inp.value));
+      fetch(previewUrl, {
+        method: "POST",
+        headers: { "X-CSRFToken": (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || "" },
+        body: fd,
+      })
+        .then((resp) => resp.json().then((data) => ({ ok: resp.ok, data })))
+        .then(({ ok, data }) => {
+          if (ok && data.html) {
+            loadPreview(data.html);
+          }
+        })
+        .catch(() => {});
+    }
+
+    // init preview & signature box
+    loadPreview(previewHtml);
+    syncHidden();
+
+    // listeners
+    dynInputs.forEach((inp) => inp.addEventListener("input", fetchPreview));
+    [sigTop, sigLeft, sigWidth, sigHeight, sigPage, sigText].forEach((inp) => inp.addEventListener("input", syncHidden));
+
+    signatureBox.addEventListener("mousedown", onDragStart);
+    signatureBox.querySelector(".signature-handle").addEventListener("mousedown", onResizeStart);
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onEnd);
+    document.addEventListener("keydown", (e) => {
+      if (isReadonly) return;
+      const activeTag = (document.activeElement || {}).tagName;
+      if (activeTag === "INPUT" || activeTag === "TEXTAREA") return;
+      if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)) {
+        e.preventDefault();
+        const step = e.shiftKey ? 0.5 : 1;
+        if (e.key === "ArrowUp") sigTop.value = Math.max(0, parseFloat(sigTop.value || "0") - step).toFixed(1);
+        if (e.key === "ArrowDown") sigTop.value = Math.min(100, parseFloat(sigTop.value || "0") + step).toFixed(1);
+        if (e.key === "ArrowLeft") sigLeft.value = Math.max(0, parseFloat(sigLeft.value || "0") - step).toFixed(1);
+        if (e.key === "ArrowRight") sigLeft.value = Math.min(100, parseFloat(sigLeft.value || "0") + step).toFixed(1);
+        syncHidden();
+      }
+    });
+    if (btnTopLeft) btnTopLeft.addEventListener("click", () => { sigTop.value = 5; sigLeft.value = 5; syncHidden(); });
+    if (btnCenter) btnCenter.addEventListener("click", () => { sigTop.value = 45; sigLeft.value = 40; syncHidden(); });
+    if (btnBottomRight) btnBottomRight.addEventListener("click", () => { sigTop.value = 80; sigLeft.value = 65; syncHidden(); });
+    if (btnReset) btnReset.addEventListener("click", resetSignature);
+    wrapper.addEventListener("click", (e) => {
+      if (isReadonly) return;
+      if (e.target.closest("#signature-box")) return;
+      const rect = wrapper.getBoundingClientRect();
+      const x = e.clientX - rect.left + wrapper.scrollLeft;
+      const y = e.clientY - rect.top + wrapper.scrollTop;
+      sigLeft.value = Math.min(100, Math.max(0, (x / PAGE_WIDTH) * 100)).toFixed(1);
+      sigTop.value = Math.min(100, Math.max(0, (y / PAGE_HEIGHT) * 100)).toFixed(1);
+      syncHidden();
+    });
+    if (fileInput) {
+      fileInput.addEventListener("change", (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        if (!file.type.includes("png")) {
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          signatureBoxImage = evt.target.result;
+          updateSignatureBox();
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  });
+</script>
+
+<style>
+  #work-preview {
+    pointer-events: none;
+  }
+  #signature-box {
+    background: rgba(13, 71, 161, 0.12);
+    border: 2px dashed #0d47a1;
+    border-radius: 8px;
+    padding: 6px 10px;
+    color: #0d47a1;
+    font-weight: 600;
+    cursor: move;
+  }
+  #signature-box .signature-handle {
+    position: absolute;
+    right: -6px;
+    bottom: -6px;
+    width: 14px;
+    height: 14px;
+    background: #0d47a1;
+    border-radius: 4px;
+    cursor: se-resize;
+  }
+</style>
+{% endblock %}

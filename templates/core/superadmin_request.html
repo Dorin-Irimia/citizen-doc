@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Cod super admin{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <h1 class="h4 mb-3 text-center">Autentificare super admin</h1>
+    <form method="post" class="card card-body shadow-sm">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      <div class="mb-3">
+        <label class="form-label">Email</label>
+        {{ form.email }}
+        {{ form.email.errors }}
+      </div>
+      <button class="btn btn-primary w-100">Trimite cod</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

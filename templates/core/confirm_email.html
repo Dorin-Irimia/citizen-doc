@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Confirmare email{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5">
+    <h1 class="h5 mb-3 text-center">Confirmare email recuperare</h1>
+    <p class="text-muted small text-center">Daca nu ai email setat sau vrei sa il schimbi, completeaza mai jos si trimite codul. Apoi introdu codul pentru confirmare.</p>
+    <form method="post" class="card card-body shadow-sm">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      <div class="mb-3">
+        <label class="form-label">CNP</label>
+        {{ form.cnp }}
+        {{ form.cnp.errors }}
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Email</label>
+        <input type="email" name="email" class="form-control" value="{{ current_email|default:'' }}">
+      </div>
+      <div class="d-flex gap-2 mb-3">
+        <button class="btn btn-outline-primary w-50" name="send_code" value="1" formnovalidate>Trimite cod</button>
+        <button class="btn btn-primary w-50" name="verify_code" value="1">Confirma</button>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Cod</label>
+        {{ form.code }}
+        {{ form.code.errors }}
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
