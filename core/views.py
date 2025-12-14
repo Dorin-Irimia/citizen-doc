@@ -834,14 +834,21 @@ def chat_thread(request, citizen_id=None):
                 history_html = "".join(history_html_parts) if history_plain else "<p>Conversatie goala.</p>"
                 target_email = citizen.email_recuperare or (citizen.user.email if citizen.user else None)
                 if target_email:
-                    send_mail(
-                        "Copie conversatie chat",
-                        history_text,
-                        settings.DEFAULT_FROM_EMAIL,
-                        [target_email],
-                        fail_silently=True,
-                        html_message=history_html,
-                    )
+                    try:
+                        send_mail(
+                            "Copie conversatie chat",
+                            history_text,
+                            settings.DEFAULT_FROM_EMAIL,
+                            [target_email],
+                            fail_silently=False,
+                            html_message=history_html,
+                        )
+                        messages.info(request, f"Conversatia a fost trimisa pe email la {target_email}.")
+                    except Exception as exc:
+                        messages.warning(
+                            request,
+                            f"Conversatia a fost stearsa, dar emailul nu a putut fi trimis ({exc}).",
+                        )
                 msgs.delete()
                 active_thread.delete()  # stergem si threadul pentru a disparea din lista
                 messages.success(request, "Conversatia a fost stearsa.")
