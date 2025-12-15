@@ -32,11 +32,17 @@
     text-shadow: 0 5px 16px rgba(0, 0, 0, 0.35);
   }
   nav.navbar {
-    background: rgba(6, 20, 13, 0.9) !important;
+    background: rgba(6, 20, 13, 0.95) !important;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+    position: relative;
+    z-index: 2;
   }
   nav.navbar .nav-link,
   nav.navbar .navbar-brand {
-    color: #e5f4ea !important;
+    color: #e9ffef !important;
+    font-weight: 600;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
   }
   nav.navbar .nav-link:hover {
     color: #9df1c1 !important;
@@ -86,7 +92,7 @@ document.addEventListener("DOMContentLoaded", function() {
         move: { enable: true, speed: 1.6, direction: "none", out_mode: "out" }
       },
       interactivity: {
-        detect_on: "canvas",
+        detect_on: "window",
         events: { onhover: { enable: true, mode: "repulse" }, onclick: { enable: true, mode: "push" }, resize: true },
         modes: {
           repulse: { distance: 170, duration: 0.3 },
@@ -96,6 +102,21 @@ document.addEventListener("DOMContentLoaded", function() {
       retina_detect: true
     });
   }
+  // Impuls pentru ca particulele sa fuga de cursor chiar peste nav/form
+  document.addEventListener("mousemove", function (evt) {
+    const pjs = window.pJSDom && window.pJSDom[0];
+    if (!pjs) return;
+    pjs.pJS.interactivity.mouse.pos_x = evt.clientX;
+    pjs.pJS.interactivity.mouse.pos_y = evt.clientY;
+    pjs.pJS.interactivity.status = "mousemove";
+  });
+  document.addEventListener("mouseleave", function () {
+    const pjs = window.pJSDom && window.pJSDom[0];
+    if (!pjs) return;
+    pjs.pJS.interactivity.mouse.pos_x = null;
+    pjs.pJS.interactivity.mouse.pos_y = null;
+    pjs.pJS.interactivity.status = "mouseleave";
+  });
 });
 </script>
 {% endblock %}
