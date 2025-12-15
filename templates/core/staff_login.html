@@ -6,7 +6,17 @@
     background: radial-gradient(circle at 30% 20%, #0f2e1c 0%, #0a1b11 45%, #050f09 100%);
     color: #e5f4ea;
   }
+  #particles-admin {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background: linear-gradient(145deg, rgba(10, 30, 18, 0.82), rgba(5, 12, 8, 0.9));
+    pointer-events: none;
+    user-select: none;
+  }
   .login-wrapper {
+    position: relative;
+    z-index: 1;
     min-height: 70vh;
     display: flex;
     align-items: center;
@@ -32,6 +42,7 @@
     color: #9df1c1 !important;
   }
 </style>
+<div id="particles-admin"></div>
 <div class="container login-wrapper">
   <div class="row justify-content-center w-100">
     <div class="col-md-5">
@@ -60,4 +71,31 @@
     </div>
   </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  if (window.particlesJS) {
+    particlesJS("particles-admin", {
+      particles: {
+        number: { value: 110, density: { enable: true, value_area: 700 } },
+        color: { value: "#7df5b2" },
+        shape: { type: "circle" },
+        opacity: { value: 0.6, random: true },
+        size: { value: 3, random: true },
+        line_linked: { enable: true, distance: 130, color: "#4da775", opacity: 0.5, width: 1 },
+        move: { enable: true, speed: 1.6, direction: "none", out_mode: "out" }
+      },
+      interactivity: {
+        detect_on: "canvas",
+        events: { onhover: { enable: true, mode: "repulse" }, onclick: { enable: true, mode: "push" }, resize: true },
+        modes: {
+          repulse: { distance: 170, duration: 0.3 },
+          push: { particles_nb: 5 }
+        }
+      },
+      retina_detect: true
+    });
+  }
+});
+</script>
 {% endblock %}
