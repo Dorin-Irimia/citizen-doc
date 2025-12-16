@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Fiscal - Modular Hub{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h4 mb-0">Viziune Fiscală</h1>
+    <div class="text-muted">Conturi fiscale, scadențe deschise</div>
+  </div>
+  <a class="btn btn-primary" href="{% url 'saas_portal:asset_list' %}">Bunuri</a>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header">Conturi fiscale (primele 50)</div>
+      <div class="card-body">
+        {% if accounts %}
+          <div class="list-group">
+            {% for acc in accounts %}
+              <div class="list-group-item d-flex justify-content-between">
+                <div>
+                  <div class="fw-semibold">{{ acc.citizen.full_name }}</div>
+                  <div class="text-muted small">{{ acc.municipality.name }}</div>
+                </div>
+                <span class="badge bg-success">{{ acc.status }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-muted">Nu există conturi.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header">Scadențe deschise</div>
+      <div class="card-body">
+        {% if open_debts %}
+          <div class="list-group">
+            {% for d in open_debts %}
+              <div class="list-group-item">
+                <div class="fw-semibold">{{ d.assessment.fiscal_account.citizen.full_name }}</div>
+                <div class="text-muted small">Scadent: {{ d.due_date }} · {{ d.amount }} (plătit: {{ d.paid_amount }})</div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-muted">Niciun debit deschis.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

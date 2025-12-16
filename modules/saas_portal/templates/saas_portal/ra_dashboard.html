@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Registru Agricol - Modular Hub{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h4 mb-0">Registru Agricol (view)</h1>
+    <div class="text-muted">Gospodării, membri, asociere bunuri</div>
+  </div>
+  <a class="btn btn-primary" href="{% url 'saas_portal:asset_list' %}">Bunuri</a>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body d-flex justify-content-between">
+    <div>
+      <div class="fw-semibold">Gospodării listate</div>
+      <div class="text-muted small">Primele 50</div>
+    </div>
+    <div class="fw-semibold">{{ households|length }}</div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body d-flex justify-content-between">
+    <div>
+      <div class="fw-semibold">Bunuri fără gospodărie asociată</div>
+      <div class="text-muted small">Diferențe RA vs. registru bunuri</div>
+    </div>
+    <div class="fw-semibold text-warning">{{ no_household }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">Gospodării</div>
+  <div class="card-body">
+    {% if households %}
+      <div class="list-group">
+        {% for h in households %}
+          <div class="list-group-item">
+            <div class="fw-semibold">{{ h.name|default:h.code }}</div>
+            <div class="text-muted small">Şef gospodărie: {{ h.head.full_name|default:"-" }}</div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-muted">Niciun rezultat.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+

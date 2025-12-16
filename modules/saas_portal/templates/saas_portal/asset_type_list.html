@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Tipuri de bun - Modular Hub{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Tipuri de bun</h1>
+  <a class="btn btn-primary" href="{% url 'saas_portal:asset_type_create' %}">Adaugă tip</a>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    {% if types %}
+      <div class="list-group">
+        {% for t in types %}
+          <div class="list-group-item d-flex justify-content-between">
+            <div>
+              <div class="fw-semibold">{{ t.name }}</div>
+              <div class="text-muted small">{{ t.municipality.name }} · {{ t.code }}</div>
+            </div>
+            <span class="badge {% if t.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+              {% if t.is_active %}Activ{% else %}Inactiv{% endif %}
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-muted">Niciun tip definit.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+

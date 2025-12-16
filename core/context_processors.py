@@ -1,3 +1,6 @@
+from django.conf import settings
+from django.urls import reverse
+
 from .models import Notification, StaffNotification, Message, MunicipalityAdmin
 
 def unread_counts(request):
@@ -25,3 +28,18 @@ def unread_counts(request):
             chat_qs = chat_qs.filter(citizen__municipality=muni)
         data["unread_chat_staff"] = chat_qs.count()
     return {"unread_counts": data}
+
+
+def optional_modules(request):
+    enabled = getattr(settings, "ENABLED_MODULES", [])
+    links = []
+    if "modules.saas_portal" in enabled:
+        try:
+            links.append({"label": "Modular Hub", "url": reverse("saas_portal:home")})
+        except Exception:
+            # reverse can fail before URLconf is fully loaded; ignore in that case
+            pass
+    return {
+        "enabled_modules": enabled,
+        "module_links": links,
+    }

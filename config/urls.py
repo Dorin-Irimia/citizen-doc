@@ -24,5 +24,13 @@ urlpatterns = [
     path("", include("core.urls")),
 ]
 
+try:
+    import modules.urls as module_urls
+except ImportError:
+    module_urls = None
+
+if module_urls:
+    urlpatterns.append(path("modules/", include(module_urls)))
+
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

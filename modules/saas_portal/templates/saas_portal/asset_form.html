@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Declară bun - Modular Hub{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-3">Declară bun / teren / clădire</h1>
+<div class="card">
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      <div class="row g-3">
+        {% for field in form %}
+          <div class="col-12">
+            <label class="form-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% for err in field.errors %}<div class="text-danger small">{{ err }}</div>{% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+      <div class="d-flex justify-content-end gap-2 mt-3">
+        <a class="btn btn-outline-secondary" href="{% url 'saas_portal:asset_list' %}">Renunță</a>
+        <button class="btn btn-primary" type="submit">Trimite spre validare</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+

@@ -51,6 +51,20 @@ INSTALLED_APPS = [
     "ckeditor",
 ]
 
+# Optional visual/feature modules (drop-in folder).
+MODULES_DIR = BASE_DIR / "modules"
+ENABLED_MODULES = []
+if MODULES_DIR.exists():
+    for module_dir in MODULES_DIR.iterdir():
+        if not module_dir.is_dir() or module_dir.name.startswith(("_", ".", "__")):
+            continue
+        if not (module_dir / "apps.py").exists():
+            continue
+        ENABLED_MODULES.append(f"modules.{module_dir.name}")
+ENABLED_MODULES.sort()
+
+INSTALLED_APPS += ENABLED_MODULES
+
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -80,6 +94,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "core.context_processors.unread_counts",
+                "core.context_processors.optional_modules",
             ],
         },
     },

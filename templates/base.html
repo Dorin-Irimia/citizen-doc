@@ -120,6 +120,18 @@
                 </a>
               {% endif %}
             {% endif %}
+            {% if module_links %}
+              <div class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" aria-expanded="false">
+                  Module
+                </a>
+                <ul class="dropdown-menu">
+                  {% for mod in module_links %}
+                    <li><a class="dropdown-item" href="{{ mod.url }}">{{ mod.label }}</a></li>
+                  {% endfor %}
+                </ul>
+              </div>
+            {% endif %}
           </div>
           <div class="navbar-nav">
             {% if request.user.is_authenticated %}
